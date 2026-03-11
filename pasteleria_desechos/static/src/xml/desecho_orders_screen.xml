@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="pasteleria_desechos.DesechoOrdersScreen" owl="1">
+        <div class="screen h-100 d-flex flex-column" style="background:#f6f7fb;">
+            <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-white">
+                <div>
+                    <h2 class="mb-1">Órdenes de desecho</h2>
+                    <div class="text-muted">Solicitudes pendientes de aprobación</div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-secondary" t-on-click="loadOrders">Recargar</button>
+                    <button class="btn btn-primary" t-on-click="goBack">Volver</button>
+                </div>
+            </div>
+
+            <div class="p-3 flex-grow-1 overflow-auto">
+                <t t-if="state.loading">
+                    <div class="alert alert-info">Cargando desechos pendientes...</div>
+                </t>
+
+                <t t-if="state.error">
+                    <div class="alert alert-danger">
+                        <t t-esc="state.error"/>
+                    </div>
+                </t>
+
+                <t t-if="!state.loading and !state.error and !state.orders.length">
+                    <div class="alert alert-secondary">No hay órdenes de desecho pendientes.</div>
+                </t>
+
+                <t t-if="!state.loading and state.orders.length">
+                    <table class="table table-bordered table-striped bg-white">
+                        <thead>
+                            <tr>
+                                <th>Referencia</th>
+                                <th>Sucursal</th>
+                                <th>POS</th>
+                                <th>Solicitado por</th>
+                                <th>Fecha</th>
+                                <th>Unidades</th>
+                                <th style="width:220px;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="state.orders" t-as="o" t-key="o.id">
+                                <tr>
+                                    <td><t t-esc="o.name"/></td>
+                                    <td><t t-esc="o.warehouse_id and o.warehouse_id[1] or ''"/></td>
+                                    <td><t t-esc="o.pos_config_id and o.pos_config_id[1] or ''"/></td>
+                                    <td><t t-esc="o.requested_by and o.requested_by[1] or ''"/></td>
+                                    <td><t t-esc="o.requested_date or ''"/></td>
+                                    <td><t t-esc="o.total_qty"/></td>
+                                    <td>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-success btn-sm"
+                                                    t-on-click="() => this.confirmOrder(o)">
+                                                Confirmar
+                                            </button>
+                                            <button class="btn btn-danger btn-sm"
+                                                    t-on-click="() => this.rejectOrder(o)">
+                                                Rechazar
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+                </t>
+            </div>
+        </div>
+    </t>
+
+</templates>

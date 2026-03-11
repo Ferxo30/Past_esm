@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_pasteleria_desecho_admin,pasteleria.desecho admin,model_pasteleria_desecho,pasteleria_desechos.group_pasteleria_admin,1,1,1,1
+access_pasteleria_desecho_gerente,pasteleria.desecho gerente,model_pasteleria_desecho,pasteleria_desechos.group_pasteleria_gerente,1,1,1,0
+access_pasteleria_desecho_cajero,pasteleria.desecho cajero,model_pasteleria_desecho,pasteleria_desechos.group_pasteleria_cajero,1,1,1,0
+access_pasteleria_desecho_line_admin,pasteleria.desecho.line admin,model_pasteleria_desecho_line,pasteleria_desechos.group_pasteleria_admin,1,1,1,1
+access_pasteleria_desecho_line_gerente,pasteleria.desecho.line gerente,model_pasteleria_desecho_line,pasteleria_desechos.group_pasteleria_gerente,1,1,1,0
+access_pasteleria_desecho_line_cajero,pasteleria.desecho.line cajero,model_pasteleria_desecho_line,pasteleria_desechos.group_pasteleria_cajero,1,1,1,0

@@ -1,0 +1,230 @@
+.pasteleria_desecho_trigger_btn {
+    width: 100%;
+    margin-top: 8px;
+    padding: 12px 14px;
+    border: 0;
+    border-radius: 6px;
+    background: #b23b2b;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+}
+
+.pasteleria_desecho_trigger_btn:hover {
+    filter: brightness(0.96);
+}
+
+body.pasteleria-desecho-modal-open {
+    overflow: hidden;
+}
+
+#pasteleria_desecho_modal_root {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+}
+
+#pasteleria_desecho_modal_root.show {
+    pointer-events: auto;
+}
+
+.pasteleria_desecho_overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(31, 41, 55, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.pasteleria_desecho_modal {
+    width: 96vw;
+    max-width: 980px;
+    max-height: 90vh;
+    overflow: auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+    padding: 24px;
+    font-family: inherit;
+}
+
+.pd-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.pd-header h3 {
+    margin: 0;
+    font-size: 1.4rem;
+    color: #222;
+}
+
+.pd-header p {
+    margin: 6px 0 0;
+    color: #666;
+    font-size: 0.95rem;
+}
+
+.pd-close {
+    border: 0;
+    background: transparent;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    color: #666;
+}
+
+.pd-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.pd-meta > div {
+    background: #f7f7fa;
+    border: 1px solid #ececf1;
+    border-radius: 12px;
+    padding: 12px 14px;
+}
+
+.pd-meta span {
+    display: block;
+    color: #7a7a8c;
+    font-size: 0.78rem;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.pd-meta strong {
+    color: #27272f;
+    font-size: 0.96rem;
+}
+
+.pd-error {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+}
+
+.pd-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pd-line {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) 130px minmax(0, 1.4fr) 100px;
+    gap: 12px;
+    align-items: end;
+    background: #fafafc;
+    border: 1px solid #ececf1;
+    border-radius: 12px;
+    padding: 14px;
+}
+
+.pd-field label {
+    display: block;
+    margin-bottom: 6px;
+    color: #555;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.pd-input {
+    width: 100%;
+    border: 1px solid #d6d6e0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+    outline: none;
+    background: #fff;
+}
+
+.pd-input:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+.pd-remove-line,
+.pd-secondary,
+.pd-primary {
+    border: 0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.pd-remove-line,
+.pd-secondary {
+    background: #ececf4;
+    color: #37374a;
+}
+
+.pd-primary {
+    background: #7c3aed;
+    color: #fff;
+}
+
+.pd-primary:disabled {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.pd-actions-row {
+    margin-top: 14px;
+}
+
+.pd-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 22px;
+}
+
+.pasteleria_desecho_toast {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 10000;
+    background: #1f2937;
+    color: #fff;
+    padding: 12px 16px;
+    border-radius: 10px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.2s ease;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.pasteleria_desecho_toast.error {
+    background: #991b1b;
+}
+
+.pasteleria_desecho_toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+@media (max-width: 900px) {
+    .pd-meta {
+        grid-template-columns: 1fr;
+    }
+
+    .pd-line {
+        grid-template-columns: 1fr;
+    }
+}
