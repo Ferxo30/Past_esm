@@ -115,7 +115,14 @@ class PasteleriaDesecho(models.Model):
             if vals.get("name", _("New")) == _("New"):
                 vals["name"] = self.env["ir.sequence"].next_by_code("pasteleria.desecho") or _("New")
 
-        records = super().create(vals_list)
+        records = super(
+            PasteleriaDesecho,
+            self.with_context(
+                tracking_disable=True,
+                mail_create_nolog=True,
+                mail_notrack=True,
+            ),
+        ).create(vals_list)
 
         for rec in records:
             rec._post_desecho_message(
@@ -155,7 +162,6 @@ class PasteleriaDesecho(models.Model):
                 raise UserError(_("Solo puedes editar un desecho cuando está en Borrador."))
 
     def write(self, vals):
-        # Permite escrituras internas del flujo usando contexto
         if not self.env.context.get("skip_desecho_edit_check"):
             protected_keys = {"message_follower_ids", "message_ids", "activity_ids"}
             if any(k not in protected_keys for k in vals.keys()):
@@ -174,9 +180,23 @@ class PasteleriaDesecho(models.Model):
                 continue
             if not rec.line_ids:
                 raise UserError(_("Agrega al menos una línea antes de enviar."))
-            rec.with_context(skip_desecho_edit_check=True).write({
+
+            rec.with_context(
+                skip_desecho_edit_check=True,
+                tracking_disable=True,
+                mail_notrack=True,
+            ).write({
                 "state": "pending",
             })
+
+            rec._post_desecho_message(
+                subject="Orden de desecho enviada a revisión",
+                body=(
+                    f"<b>Orden de desecho enviada a revisión</b><br/>"
+                    f"Referencia: {rec.name}<br/>"
+                    f"Enviado por: {self.env.user.name}"
+                ),
+            )
 
     def _ensure_manager(self):
         if not (
@@ -191,7 +211,11 @@ class PasteleriaDesecho(models.Model):
             if rec.state != "pending":
                 continue
 
-            rec.with_context(skip_desecho_edit_check=True).write({
+            rec.with_context(
+                skip_desecho_edit_check=True,
+                tracking_disable=True,
+                mail_notrack=True,
+            ).write({
                 "state": "rejected",
                 "approved_by": self.env.user.id,
                 "approved_date": fields.Datetime.now(),
@@ -211,7 +235,11 @@ class PasteleriaDesecho(models.Model):
         self._ensure_manager()
         for rec in self:
             if rec.state in ("pending", "rejected"):
-                rec.with_context(skip_desecho_edit_check=True).write({
+                rec.with_context(
+                    skip_desecho_edit_check=True,
+                    tracking_disable=True,
+                    mail_notrack=True,
+                ).write({
                     "state": "draft",
                     "approved_by": False,
                     "approved_date": False,
@@ -300,7 +328,6 @@ class PasteleriaDesecho(models.Model):
             picking.sudo().action_confirm()
             picking.sudo().action_assign()
 
-            # Compatibilidad con builds de Odoo 18
             for move in moves:
                 if not move.move_line_ids:
                     continue
@@ -315,7 +342,11 @@ class PasteleriaDesecho(models.Model):
 
             picking.sudo().button_validate()
 
-            rec.with_context(skip_desecho_edit_check=True).write({
+            rec.with_context(
+                skip_desecho_edit_check=True,
+                tracking_disable=True,
+                mail_notrack=True,
+            ).write({
                 "state": "confirmed",
                 "approved_by": self.env.user.id,
                 "approved_date": fields.Datetime.now(),

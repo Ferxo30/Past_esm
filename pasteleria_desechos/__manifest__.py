@@ -12,6 +12,7 @@
         "data/locations.xml",
         "views/desecho_views.xml",
         "views/menus.xml",
+        "views/inventory_menu_override.xml",
     ],
     "assets": {
         "point_of_sale._assets_pos": [

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Reutilizar el menú estándar de Inventario > Operaciones > Ajustes > Desechar -->
+    <record id="stock.menu_stock_scrap" model="ir.ui.menu">
+        <field name="active" eval="True"/>
+        <field name="action" ref="pasteleria_desechos.action_pasteleria_desechos"/>
+        <field name="groups_id" eval="[
+            (6, 0, [
+                ref('stock.group_stock_user'),
+                ref('pasteleria_desechos.group_pasteleria_cajero'),
+                ref('pasteleria_desechos.group_pasteleria_gerente'),
+                ref('pasteleria_desechos.group_pasteleria_admin')
+            ])
+        ]"/>
+    </record>
+
+</odoo>
