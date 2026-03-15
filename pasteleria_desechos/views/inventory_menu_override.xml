@@ -1,18 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Reutilizar el menú estándar de Inventario > Operaciones > Ajustes > Desechar -->
+    <record id="action_inventory_pasteleria_desechos" model="ir.actions.act_window">
+        <field name="name">Desechar</field>
+        <field name="res_model">pasteleria.desecho</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crea el primer registro de desecho.
+            </p>
+            <p>
+                El inventario solo se descuenta cuando un gerente confirma el desecho.
+            </p>
+        </field>
+    </record>
+
     <record id="stock.menu_stock_scrap" model="ir.ui.menu">
         <field name="active" eval="True"/>
-        <field name="action" ref="pasteleria_desechos.action_pasteleria_desechos"/>
-        <field name="groups_id" eval="[
-            (6, 0, [
-                ref('stock.group_stock_user'),
-                ref('pasteleria_desechos.group_pasteleria_cajero'),
-                ref('pasteleria_desechos.group_pasteleria_gerente'),
-                ref('pasteleria_desechos.group_pasteleria_admin')
-            ])
-        ]"/>
+        <field name="action" ref="pasteleria_desechos.action_inventory_pasteleria_desechos"/>
     </record>
 
 </odoo>

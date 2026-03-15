@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_pasteleria_root" name="Pastelería" sequence="10"/>
+    <menuitem id="menu_pasteleria_root" name="Pastelerías" sequence="10"/>
     <menuitem id="menu_pasteleria_desechos" name="Desechos" parent="menu_pasteleria_root"
-              action="action_pasteleria_desechos" sequence="10"/>
+              action="action_pasteleria_desechos_app" sequence="10"/>
 </odoo>
