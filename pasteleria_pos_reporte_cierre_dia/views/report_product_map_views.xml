@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_pasteleria_report_product_map_tree" model="ir.ui.view">
-        <field name="name">pasteleria.pos.report.product.map.tree</field>
+    <record id="view_pasteleria_report_product_map_list" model="ir.ui.view">
+        <field name="name">pasteleria.pos.report.product.map.list</field>
         <field name="model">pasteleria.pos.report.product.map</field>
         <field name="arch" type="xml">
-            <tree editable="bottom" create="false">
+            <list create="false" delete="false">
                 <field name="product_id" readonly="1"/>
-                <field name="pos_category_id" readonly="1"/>
-                <field name="category_name"/>
-                <field name="family_name"/>
+                <field name="product_display_name" readonly="1"/>
+                <field name="default_code" readonly="1"/>
+                <field name="category_name" readonly="1"/>
+                <field name="family_name" readonly="1"/>
                 <field name="variant_raw" readonly="1"/>
                 <field name="variant_normalized"/>
                 <field name="include_in_report"/>
-                <field name="default_code" readonly="1"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -23,23 +23,26 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <button name="action_rebuild_from_pos_products" type="object" string="Reconstruir desde POS" class="btn-primary"/>
+                    <button name="action_rebuild_from_pos_products"
+                            type="object"
+                            string="Reconstruir desde POS"
+                            class="btn-primary"/>
                 </header>
                 <sheet>
                     <group>
                         <group>
                             <field name="product_id" readonly="1"/>
-                            <field name="product_tmpl_id" readonly="1"/>
+                            <field name="product_display_name" readonly="1"/>
                             <field name="default_code" readonly="1"/>
                             <field name="available_in_pos" readonly="1"/>
+                            <field name="include_in_report"/>
                         </group>
                         <group>
                             <field name="pos_category_id" readonly="1"/>
-                            <field name="category_name"/>
-                            <field name="family_name"/>
+                            <field name="category_name" readonly="1"/>
+                            <field name="family_name" readonly="1"/>
                             <field name="variant_raw" readonly="1"/>
                             <field name="variant_normalized"/>
-                            <field name="include_in_report"/>
                         </group>
                     </group>
                     <group>
@@ -56,24 +59,24 @@
         <field name="arch" type="xml">
             <search>
                 <field name="product_id"/>
+                <field name="product_display_name"/>
                 <field name="category_name"/>
                 <field name="family_name"/>
                 <field name="variant_normalized"/>
                 <filter string="Incluidos" name="included" domain="[('include_in_report', '=', True)]"/>
                 <group expand="0" string="Agrupar por">
-                    <filter string="Categoría" name="group_by_category" context="{'group_by': 'category_name'}"/>
-                    <filter string="Familia" name="group_by_family" context="{'group_by': 'family_name'}"/>
-                    <filter string="Variante" name="group_by_variant" context="{'group_by': 'variant_normalized'}"/>
+                    <filter string="Categoría" name="group_category" context="{'group_by': 'category_name'}"/>
+                    <filter string="Familia" name="group_family" context="{'group_by': 'family_name'}"/>
+                    <filter string="Variante" name="group_variant" context="{'group_by': 'variant_normalized'}"/>
                 </group>
             </search>
         </field>
     </record>
 
     <record id="action_pasteleria_report_product_map" model="ir.actions.act_window">
-        <field name="name">Plantilla Reporte Final Día</field>
+        <field name="name">Mapa de Productos Reporte</field>
         <field name="res_model">pasteleria.pos.report.product.map</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_pasteleria_report_product_map_search"/>
-        <field name="context">{'search_default_included': 1}</field>
     </record>
 </odoo>

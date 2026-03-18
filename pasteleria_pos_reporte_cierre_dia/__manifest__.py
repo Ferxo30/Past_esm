@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Pastelería POS - Reporte Cierre Día",
-    "version": "18.0.3.0.0",
-    "summary": "Reporte final del día por sesión POS, agrupado por categoría y familia de producto.",
+    "version": "18.0.2.0.0",
+    "summary": "Genera y almacena reporte final del día por sesión POS",
     "category": "Point of Sale",
-    "author": "OpenAI",
+    "author": "Tu Equipo",
     "license": "LGPL-3",
     "depends": [
         "point_of_sale",
         "stock",
         "product",
-        "mail",
         "pasteleria_desechos",
     ],
     "data": [
+        "security/security.xml",
         "security/ir.model.access.csv",
         "data/sequence.xml",
         "views/report_product_map_views.xml",
@@ -22,6 +22,7 @@
         "report/daily_report_report.xml",
         "report/daily_report_template.xml",
     ],
-    "application": False,
     "installable": True,
+    "application": False,
+    "post_init_hook": "post_init_hook",
 }

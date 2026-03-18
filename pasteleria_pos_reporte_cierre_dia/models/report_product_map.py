@@ -75,8 +75,21 @@ class PasteleriaPosReportProductMap(models.Model):
     @api.model
     def _prepare_map_vals_from_product(self, product):
         family_name, variant_raw, variant_normalized = self._infer_family_and_variant_from_product(product)
-        pos_category = product.pos_categ_ids[:1] if hasattr(product, "pos_categ_ids") and product.pos_categ_ids else False
-        category_name = pos_category.display_name if pos_category else (product.categ_id.display_name if product.categ_id else _("Sin categoría"))
+
+        pos_category = False
+        tmpl = product.product_tmpl_id
+
+        if hasattr(tmpl, "pos_categ_ids") and tmpl.pos_categ_ids:
+            pos_category = tmpl.pos_categ_ids[:1]
+        elif hasattr(product, "pos_categ_ids") and product.pos_categ_ids:
+            pos_category = product.pos_categ_ids[:1]
+
+        category_name = (
+            pos_category.display_name
+            if pos_category
+            else (product.categ_id.display_name if product.categ_id else _("Sin categoría"))
+        )
+
         return {
             "product_id": product.id,
             "pos_category_id": pos_category.id if pos_category else False,
@@ -89,7 +102,6 @@ class PasteleriaPosReportProductMap(models.Model):
 
     @api.model
     def _infer_family_and_variant_from_product(self, product):
-        # 1) Intentar por atributos de variante.
         attr_names = []
         if hasattr(product, "product_template_attribute_value_ids"):
             attr_names = [
@@ -104,7 +116,6 @@ class PasteleriaPosReportProductMap(models.Model):
                 family = product.product_tmpl_id.name or product.display_name
                 return family.strip(), attr_name, normalized
 
-        # 2) Intentar por nombre completo del producto.
         full_name = " ".join(filter(None, [product.display_name, product.name, product.product_tmpl_id.name]))
         normalized = self._normalize_variant_name(full_name)
 
@@ -114,7 +125,11 @@ class PasteleriaPosReportProductMap(models.Model):
             token_pattern = r'(?i)(?:\bPq\b|\bGr\b|\bP\b|peque(?:ñ|n)o|grande|porci(?:ó|o)n)'
             match = re.search(token_pattern, full_name or "")
             raw = match.group(0) if match else False
-            cleaned = re.sub(r'(?i)\s*[-/()]?\s*(?:Pq|Gr|P|peque(?:ñ|n)o|grande|porci(?:ó|o)n)\s*$', '', family).strip(' -_/')
+            cleaned = re.sub(
+                r'(?i)\s*[-/()]?\s*(?:Pq|Gr|P|peque(?:ñ|n)o|grande|porci(?:ó|o)n)\s*$',
+                '',
+                family
+            ).strip(' -_/')
             if cleaned:
                 family = cleaned
 
