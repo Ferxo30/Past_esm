@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_pasteleria_report_product_map_tree" model="ir.ui.view">
+        <field name="name">pasteleria.pos.report.product.map.tree</field>
+        <field name="model">pasteleria.pos.report.product.map</field>
+        <field name="arch" type="xml">
+            <tree editable="bottom" create="false">
+                <field name="product_id" readonly="1"/>
+                <field name="pos_category_id" readonly="1"/>
+                <field name="category_name"/>
+                <field name="family_name"/>
+                <field name="variant_raw" readonly="1"/>
+                <field name="variant_normalized"/>
+                <field name="include_in_report"/>
+                <field name="default_code" readonly="1"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_pasteleria_report_product_map_form" model="ir.ui.view">
+        <field name="name">pasteleria.pos.report.product.map.form</field>
+        <field name="model">pasteleria.pos.report.product.map</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_rebuild_from_pos_products" type="object" string="Reconstruir desde POS" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="product_id" readonly="1"/>
+                            <field name="product_tmpl_id" readonly="1"/>
+                            <field name="default_code" readonly="1"/>
+                            <field name="available_in_pos" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="pos_category_id" readonly="1"/>
+                            <field name="category_name"/>
+                            <field name="family_name"/>
+                            <field name="variant_raw" readonly="1"/>
+                            <field name="variant_normalized"/>
+                            <field name="include_in_report"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="notes"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_pasteleria_report_product_map_search" model="ir.ui.view">
+        <field name="name">pasteleria.pos.report.product.map.search</field>
+        <field name="model">pasteleria.pos.report.product.map</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="product_id"/>
+                <field name="category_name"/>
+                <field name="family_name"/>
+                <field name="variant_normalized"/>
+                <filter string="Incluidos" name="included" domain="[('include_in_report', '=', True)]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter string="Categoría" name="group_by_category" context="{'group_by': 'category_name'}"/>
+                    <filter string="Familia" name="group_by_family" context="{'group_by': 'family_name'}"/>
+                    <filter string="Variante" name="group_by_variant" context="{'group_by': 'variant_normalized'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_pasteleria_report_product_map" model="ir.actions.act_window">
+        <field name="name">Plantilla Reporte Final Día</field>
+        <field name="res_model">pasteleria.pos.report.product.map</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_pasteleria_report_product_map_search"/>
+        <field name="context">{'search_default_included': 1}</field>
+    </record>
+</odoo>

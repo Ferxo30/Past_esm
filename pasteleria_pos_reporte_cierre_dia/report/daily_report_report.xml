@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_daily_report_pdf" model="ir.actions.report">
+        <field name="name">Reporte Final del Día</field>
+        <field name="model">pasteleria.pos.daily.report</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">pasteleria_pos_reporte_cierre_dia.report_daily_report_pdf</field>
+        <field name="report_file">pasteleria_pos_reporte_cierre_dia.report_daily_report_pdf</field>
+        <field name="print_report_name">'Reporte Final del Día - %s' % (object.name)</field>
+    </record>
+</odoo>

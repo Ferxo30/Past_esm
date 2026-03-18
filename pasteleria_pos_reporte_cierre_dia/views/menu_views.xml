@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_pasteleria_reportes_final_dia"
+              name="Reportes Final del Día"
+              parent="pasteleria_desechos.menu_pasteleria_root"
+              action="action_pasteleria_pos_daily_report"
+              sequence="20"/>
+
+    <menuitem id="menu_pasteleria_reporte_mapa_productos"
+              name="Plantilla Reporte Final Día"
+              parent="pasteleria_desechos.menu_pasteleria_root"
+              action="action_pasteleria_report_product_map"
+              sequence="30"/>
+</odoo>

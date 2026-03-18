@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_pasteleria_pos_daily_report_tree" model="ir.ui.view">
+        <field name="name">pasteleria.pos.daily.report.tree</field>
+        <field name="model">pasteleria.pos.daily.report</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="report_date"/>
+                <field name="session_id"/>
+                <field name="config_id"/>
+                <field name="user_id"/>
+                <field name="total_amount_q"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_pasteleria_pos_daily_report_form" model="ir.ui.view">
+        <field name="name">pasteleria.pos.daily.report.form</field>
+        <field name="model">pasteleria.pos.daily.report</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_regenerate_report" type="object" string="Regenerar" class="btn-primary"/>
+                    <button name="action_download_excel" type="object" string="Descargar Excel"/>
+                    <button name="action_download_pdf" type="object" string="Descargar PDF"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,generated,error"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="session_id"/>
+                            <field name="config_id" readonly="1"/>
+                            <field name="user_id"/>
+                        </group>
+                        <group>
+                            <field name="report_date"/>
+                            <field name="date_open"/>
+                            <field name="date_close"/>
+                            <field name="total_amount_q"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Detalle">
+                            <field name="line_ids">
+                                <tree create="false" delete="false">
+                                    <field name="sequence"/>
+                                    <field name="line_type"/>
+                                    <field name="category_name"/>
+                                    <field name="display_name"/>
+                                    <field name="exist_e"/>
+                                    <field name="exist_pq"/>
+                                    <field name="exist_gr"/>
+                                    <field name="exist_p"/>
+                                    <field name="income_e"/>
+                                    <field name="income_pq"/>
+                                    <field name="income_gr"/>
+                                    <field name="income_p"/>
+                                    <field name="sales_e"/>
+                                    <field name="sales_pq"/>
+                                    <field name="sales_gr"/>
+                                    <field name="sales_p"/>
+                                    <field name="sales_amount_q"/>
+                                    <field name="final_e"/>
+                                    <field name="final_pq"/>
+                                    <field name="final_gr"/>
+                                    <field name="final_p"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Archivos">
+                            <group>
+                                <field name="excel_filename" readonly="1"/>
+                                <field name="excel_file" filename="excel_filename" readonly="1"/>
+                                <field name="pdf_filename" readonly="1"/>
+                                <field name="pdf_file" filename="pdf_filename" readonly="1"/>
+                            </group>
+                        </page>
+                        <page string="Resumen">
+                            <field name="summary_text" readonly="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_pasteleria_pos_daily_report_search" model="ir.ui.view">
+        <field name="name">pasteleria.pos.daily.report.search</field>
+        <field name="model">pasteleria.pos.daily.report</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="session_id"/>
+                <field name="config_id"/>
+                <field name="user_id"/>
+                <field name="report_date"/>
+                <filter string="Generados" name="generated" domain="[('state', '=', 'generated')]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter string="Fecha" name="group_by_report_date" context="{'group_by': 'report_date'}"/>
+                    <filter string="POS" name="group_by_pos" context="{'group_by': 'config_id'}"/>
+                    <filter string="Usuario" name="group_by_user" context="{'group_by': 'user_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_pasteleria_pos_daily_report" model="ir.actions.act_window">
+        <field name="name">Reportes Final del Día</field>
+        <field name="res_model">pasteleria.pos.daily.report</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_pasteleria_pos_daily_report_search"/>
+    </record>
+</odoo>

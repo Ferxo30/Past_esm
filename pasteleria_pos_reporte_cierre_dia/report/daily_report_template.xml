@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_daily_report_pdf">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h2>Reporte Final del Día</h2>
+                        <p><strong>Sesión:</strong> <span t-field="o.session_id"/></p>
+                        <p><strong>POS:</strong> <span t-field="o.config_id"/></p>
+                        <p><strong>Fecha:</strong> <span t-field="o.report_date"/></p>
+                        <p><strong>Total Q:</strong> <span t-field="o.total_amount_q"/></p>
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Descripción</th>
+                                    <th>Exist. E</th>
+                                    <th>Exist. Pq</th>
+                                    <th>Exist. Gr</th>
+                                    <th>Exist. P</th>
+                                    <th>Ing. E</th>
+                                    <th>Ing. Pq</th>
+                                    <th>Ing. Gr</th>
+                                    <th>Ing. P</th>
+                                    <th>Venta E</th>
+                                    <th>Venta Pq</th>
+                                    <th>Venta Gr</th>
+                                    <th>Venta P</th>
+                                    <th>VTA-Q</th>
+                                    <th>Saldo E</th>
+                                    <th>Saldo Pq</th>
+                                    <th>Saldo Gr</th>
+                                    <th>Saldo P</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="o.line_ids" t-as="line">
+                                    <tr t-if="line.line_type == 'section'">
+                                        <td colspan="18"><strong><span t-field="line.display_name"/></strong></td>
+                                    </tr>
+                                    <tr t-else="">
+                                        <td><span t-field="line.display_name"/></td>
+                                        <td><span t-field="line.exist_e"/></td>
+                                        <td><span t-field="line.exist_pq"/></td>
+                                        <td><span t-field="line.exist_gr"/></td>
+                                        <td><span t-field="line.exist_p"/></td>
+                                        <td><span t-field="line.income_e"/></td>
+                                        <td><span t-field="line.income_pq"/></td>
+                                        <td><span t-field="line.income_gr"/></td>
+                                        <td><span t-field="line.income_p"/></td>
+                                        <td><span t-field="line.sales_e"/></td>
+                                        <td><span t-field="line.sales_pq"/></td>
+                                        <td><span t-field="line.sales_gr"/></td>
+                                        <td><span t-field="line.sales_p"/></td>
+                                        <td><span t-field="line.sales_amount_q"/></td>
+                                        <td><span t-field="line.final_e"/></td>
+                                        <td><span t-field="line.final_pq"/></td>
+                                        <td><span t-field="line.final_gr"/></td>
+                                        <td><span t-field="line.final_p"/></td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>
