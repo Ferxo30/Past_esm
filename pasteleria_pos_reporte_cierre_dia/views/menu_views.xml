@@ -11,4 +11,5 @@
               parent="pasteleria_desechos.menu_pasteleria_root"
               action="action_pasteleria_report_product_map"
               sequence="30"/>
+    
 </odoo>

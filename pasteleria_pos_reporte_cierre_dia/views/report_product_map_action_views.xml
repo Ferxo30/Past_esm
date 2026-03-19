@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_pasteleria_report_product_map_rebuild_form" model="ir.ui.view">
+        <field name="name">pasteleria.pos.report.product.map.rebuild.form</field>
+        <field name="model">pasteleria.pos.report.product.map</field>
+        <field name="arch" type="xml">
+            <form string="Actualizar mapa de productos POS">
+                <sheet>
+                    <group>
+                        <div>
+                            Este botón reconstruye todo el mapa usando los productos disponibles en POS,
+                            categorías y atributos de tamaño.
+                        </div>
+                    </group>
+                    <footer>
+                        <button name="action_rebuild_from_pos_products"
+                                type="object"
+                                string="Actualizar mapa desde POS"
+                                class="btn-primary"/>
+                        <button special="cancel" string="Cerrar"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_pasteleria_report_product_map_rebuild" model="ir.actions.act_window">
+        <field name="name">Actualizar mapa</field>
+        <field name="res_model">pasteleria.pos.report.product.map</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="view_id" ref="view_pasteleria_report_product_map_rebuild_form"/>
+        <field name="context">{}</field>
+    </record>
+</odoo>

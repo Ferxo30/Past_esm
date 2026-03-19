@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import base64
 import io
-from collections import defaultdict
+import json
+from collections import OrderedDict
 
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
@@ -21,20 +22,47 @@ class PasteleriaPosDailyReport(models.Model):
     date_open = fields.Datetime(string="Apertura")
     date_close = fields.Datetime(string="Cierre")
     total_amount_q = fields.Monetary(string="Total Q", currency_field="currency_id")
-    currency_id = fields.Many2one("res.currency", string="Moneda", default=lambda self: self.env.company.currency_id.id, required=True)
-    state = fields.Selection([("draft", "Borrador"), ("generated", "Generado"), ("error", "Error")], default="draft", required=True)
+    currency_id = fields.Many2one(
+        "res.currency",
+        string="Moneda",
+        default=lambda self: self.env.company.currency_id.id,
+        required=True,
+    )
+    state = fields.Selection(
+        [("draft", "Borrador"), ("generated", "Generado"), ("error", "Error")],
+        default="draft",
+        required=True,
+    )
+
     line_ids = fields.One2many("pasteleria.pos.daily.report.line", "report_id", string="Líneas")
+
     excel_file = fields.Binary(string="Archivo Excel", attachment=True)
     excel_filename = fields.Char(string="Nombre Excel")
     pdf_file = fields.Binary(string="Archivo PDF", attachment=True)
     pdf_filename = fields.Char(string="Nombre PDF")
     summary_text = fields.Text(string="Resumen")
 
+    # Guarda la estructura ya calculada por categoría/familia/variante
+    report_payload = fields.Text(string="Payload reporte")
+
     _sql_constraints = [(
         "unique_session_report",
         "unique(session_id)",
         "Ya existe un reporte final del día para esta sesión POS.",
     )]
+
+    VARIANT_META = OrderedDict([
+        ("p", {"label": "Porción", "short": "P"}),
+        ("p5", {"label": "5 porciones", "short": "5P"}),
+        ("pq", {"label": "Pequeño 8-10", "short": "Pq"}),
+        ("gr", {"label": "Grande 12-16", "short": "Gr"}),
+        ("xg", {"label": "25-30 porciones", "short": "25-30"}),
+        ("xg40", {"label": "40 porciones", "short": "40P"}),
+        ("pl40_45", {"label": "40-45 porciones", "short": "40-45"}),
+        ("pl55_60", {"label": "55-60 porciones", "short": "55-60"}),
+        ("pl100", {"label": "100 porciones", "short": "100"}),
+        ("other", {"label": "Otra", "short": "Otra"}),
+    ])
 
     @api.model
     def create(self, vals):
@@ -43,8 +71,26 @@ class PasteleriaPosDailyReport(models.Model):
         return super().create(vals)
 
     def action_regenerate_report(self):
-        self.ensure_one()
-        self._generate_full_report()
+        for report in self:
+            try:
+                report._generate_report_data()
+                report._generate_excel_file()
+
+                pdf_error = False
+                try:
+                    report._generate_pdf_file()
+                except Exception as e:
+                    pdf_error = str(e)
+
+                if pdf_error:
+                    report.summary_text = (report.summary_text or "") + _("\nPDF no generado: %s") % pdf_error
+
+                report.state = "generated"
+
+            except Exception as e:
+                report.state = "error"
+                report.summary_text = (report.summary_text or "") + _("\nERROR al regenerar reporte: %s") % str(e)
+                raise
 
     def action_download_excel(self):
         self.ensure_one()
@@ -66,28 +112,15 @@ class PasteleriaPosDailyReport(models.Model):
             "target": "self",
         }
 
-    def _generate_full_report(self):
-        self.ensure_one()
-        self._generate_report_data()
-        self._generate_excel_file()
-
-        pdf_error = False
-        try:
-            self._generate_pdf_file()
-        except Exception as e:
-            pdf_error = str(e)
-
-        if pdf_error:
-            self.summary_text = (self.summary_text or "") + _("\nPDF no generado: %s") % pdf_error
-
-        self.state = "generated"
+    # =========================================================
+    # GENERACIÓN DE DATOS
+    # =========================================================
 
     def _generate_report_data(self):
         self.ensure_one()
         self.line_ids.unlink()
 
-        session = self.session_id
-        if not session.start_at or not session.stop_at:
+        if not self.session_id.start_at or not self.session_id.stop_at:
             raise ValidationError(_("La sesión no tiene rango de fechas válido para generar el reporte."))
 
         product_maps = self.env["pasteleria.pos.report.product.map"].search([
@@ -95,130 +128,230 @@ class PasteleriaPosDailyReport(models.Model):
             ("available_in_pos", "=", True),
             ("active", "=", True),
         ], order="category_name, family_name, variant_normalized, product_id")
+
         if not product_maps:
-            raise ValidationError(_("No hay productos mapeados para el reporte. Reconstruye el mapa desde productos POS."))
+            raise ValidationError(_("No hay productos en el mapa del reporte. Actualiza el mapa desde productos POS."))
 
-        grouped = defaultdict(lambda: defaultdict(lambda: {"pq": self.env["product.product"], "gr": self.env["product.product"], "p": self.env["product.product"], "other": self.env["product.product"]}))
-        for item in product_maps:
-            category = item.category_name or _("Sin categoría")
-            family = item.family_name or item.product_tmpl_id.name or item.product_display_name
-            grouped[category][family][item.variant_normalized] |= item.product_id
+        grouped = self._group_maps_by_category_family(product_maps)
+        payload = self._build_payload(grouped)
 
-        total_amount_q = 0.0
-        line_vals_list = []
+        total_amount_q = payload["total_amount_q"]
+        summary_lines = [f"{cat['category_name']}: Q{cat['category_total']:,.2f}" for cat in payload["categories"]]
+
+        # Generamos líneas resumen para la vista Odoo
+        line_commands = []
         sequence = 10
 
-        for category_name in sorted(grouped.keys()):
-            line_vals_list.append((0, 0, {
+        for cat in payload["categories"]:
+            line_commands.append((0, 0, {
                 "sequence": sequence,
-                "line_type": "section",
-                "category_name": category_name,
-                "display_name": category_name,
+                "line_type": "category",
+                "category_name": cat["category_name"],
+                "display_name": cat["category_name"],
             }))
             sequence += 10
 
-            for family_name in sorted(grouped[category_name].keys()):
-                bucket = grouped[category_name][family_name]
-                values = self._compute_family_values(bucket)
-                total_amount_q += values["sales_amount_q"]
-                line_vals_list.append((0, 0, {
+            for fam in cat["families"]:
+                # resumen Odoo: pq y gr aparte; lo demás agrupado en P
+                summary = self._build_odoo_summary_from_family_payload(fam)
+
+                line_commands.append((0, 0, {
                     "sequence": sequence,
-                    "line_type": "data",
-                    "category_name": category_name,
-                    "display_name": family_name,
-                    **values,
+                    "line_type": "family",
+                    "category_name": cat["category_name"],
+                    "display_name": fam["family_name"],
+                    **summary,
                 }))
                 sequence += 10
 
+            line_commands.append((0, 0, {
+                "sequence": sequence,
+                "line_type": "subtotal",
+                "category_name": cat["category_name"],
+                "display_name": f"Subtotal {cat['category_name']}",
+                "sales_amount_q": cat["category_total"],
+            }))
+            sequence += 10
+
         self.write({
-            "line_ids": line_vals_list,
+            "line_ids": line_commands,
             "total_amount_q": total_amount_q,
-            "summary_text": self._build_summary_text_preview(line_vals_list, total_amount_q),
+            "summary_text": self._build_summary_text(total_amount_q, summary_lines),
+            "report_payload": json.dumps(payload, ensure_ascii=False),
         })
 
-    def _build_summary_text_preview(self, line_vals_list, total_amount_q):
-        data_lines = [v for v in line_vals_list if v[2].get("line_type") == "data"]
-        total_lines = len(data_lines)
-        total_qty = sum(v[2].get("sales_e", 0.0) + v[2].get("sales_p", 0.0) for v in data_lines)
-        categories = len({v[2].get("category_name") for v in data_lines})
-        return _(
-            "Reporte generado con %(categories)s categorías, %(lines)s filas de producto. Total unidades vendidas: %(qty)s. Total Q: %(amount)s"
-        ) % {
-            "categories": categories,
-            "lines": total_lines,
-            "qty": total_qty,
-            "amount": total_amount_q,
+    def _group_maps_by_category_family(self, product_maps):
+        grouped = OrderedDict()
+        for rec in product_maps:
+            category = rec.category_name or "Sin categoría"
+            family = rec.family_name or rec.product_display_name or rec.product_id.display_name
+
+            if category not in grouped:
+                grouped[category] = OrderedDict()
+            if family not in grouped[category]:
+                grouped[category][family] = self.env["pasteleria.pos.report.product.map"]
+
+            grouped[category][family] |= rec
+
+        return grouped
+
+    def _build_payload(self, grouped):
+        self.ensure_one()
+        payload = {
+            "session_id": self.session_id.id,
+            "report_date": str(self.report_date or ""),
+            "categories": [],
+            "total_amount_q": 0.0,
         }
 
-    def _compute_family_values(self, bucket):
-        session = self.session_id
-        start_dt = session.start_at
-        end_dt = session.stop_at
+        for category_name, family_dict in grouped.items():
+            category_used_variants = set()
+            category_total = 0.0
+            families_payload = []
 
-        products_pq = bucket.get("pq", self.env["product.product"])
-        products_gr = bucket.get("gr", self.env["product.product"])
-        products_p = bucket.get("p", self.env["product.product"])
+            for family_name, maps in family_dict.items():
+                family_payload = self._compute_family_payload(family_name, maps)
+                families_payload.append(family_payload)
+                category_total += family_payload["sales_amount_q"]
+                category_used_variants.update(family_payload["used_variants"])
 
-        exist_pq = self._get_stock_qty_at_datetime(products_pq, start_dt)
-        exist_gr = self._get_stock_qty_at_datetime(products_gr, start_dt)
-        exist_p = self._get_stock_qty_at_datetime(products_p, start_dt)
+            ordered_variants = [code for code in self.VARIANT_META.keys() if code in category_used_variants]
 
-        final_pq = self._get_stock_qty_at_datetime(products_pq, end_dt)
-        final_gr = self._get_stock_qty_at_datetime(products_gr, end_dt)
-        final_p = self._get_stock_qty_at_datetime(products_p, end_dt)
+            category_payload = {
+                "category_name": category_name,
+                "variants": ordered_variants,
+                "families": families_payload,
+                "category_total": category_total,
+            }
+            payload["categories"].append(category_payload)
+            payload["total_amount_q"] += category_total
 
-        income_pq = self._get_income_qty_for_session(products_pq, start_dt, end_dt)
-        income_gr = self._get_income_qty_for_session(products_gr, start_dt, end_dt)
-        income_p = self._get_income_qty_for_session(products_p, start_dt, end_dt)
+        return payload
 
-        sales_pq, amount_pq = self._get_sales_qty_amount_for_session(products_pq)
-        sales_gr, amount_gr = self._get_sales_qty_amount_for_session(products_gr)
-        sales_p, amount_p = self._get_sales_qty_amount_for_session(products_p)
+    def _compute_family_payload(self, family_name, maps):
+        self.ensure_one()
+
+        start_dt = self.session_id.start_at
+        end_dt = self.session_id.stop_at
+
+        variants = OrderedDict()
+        sales_amount_q = 0.0
+        used_variants = set()
+
+        for rec in maps:
+            product = rec.product_id
+            variant = rec.variant_normalized or "other"
+            if variant not in self.VARIANT_META:
+                variant = "other"
+
+            exist_qty = self._get_stock_qty_at_datetime(product, start_dt)
+            income_qty = self._get_income_qty_for_session(product, start_dt, end_dt)
+            sales_qty, sales_amount = self._get_sales_qty_amount_for_session(product)
+            final_qty = self._get_stock_qty_at_datetime(product, end_dt)
+
+            if variant not in variants:
+                variants[variant] = {
+                    "exist": 0.0,
+                    "income": 0.0,
+                    "sales": 0.0,
+                    "final": 0.0,
+                }
+
+            variants[variant]["exist"] += exist_qty
+            variants[variant]["income"] += income_qty
+            variants[variant]["sales"] += sales_qty
+            variants[variant]["final"] += final_qty
+
+            sales_amount_q += sales_amount
+            used_variants.add(variant)
+
+        return {
+            "family_name": family_name,
+            "variants": variants,
+            "used_variants": list(used_variants),
+            "sales_amount_q": sales_amount_q,
+        }
+
+    def _build_odoo_summary_from_family_payload(self, family_payload):
+        variants = family_payload["variants"]
+
+        def getv(code, key):
+            return variants.get(code, {}).get(key, 0.0)
+
+        other_codes = ["p", "p5", "xg", "xg40", "pl40_45", "pl55_60", "pl100", "other"]
+
+        exist_other = sum(getv(code, "exist") for code in other_codes)
+        income_other = sum(getv(code, "income") for code in other_codes)
+        sales_other = sum(getv(code, "sales") for code in other_codes)
+        final_other = sum(getv(code, "final") for code in other_codes)
+
+        exist_pq = getv("pq", "exist")
+        exist_gr = getv("gr", "exist")
+        income_pq = getv("pq", "income")
+        income_gr = getv("gr", "income")
+        sales_pq = getv("pq", "sales")
+        sales_gr = getv("gr", "sales")
+        final_pq = getv("pq", "final")
+        final_gr = getv("gr", "final")
 
         return {
             "exist_e": exist_pq + exist_gr,
             "exist_pq": exist_pq,
             "exist_gr": exist_gr,
-            "exist_p": exist_p,
+            "exist_p": exist_other,
             "income_e": income_pq + income_gr,
             "income_pq": income_pq,
             "income_gr": income_gr,
-            "income_p": income_p,
+            "income_p": income_other,
             "sales_e": sales_pq + sales_gr,
             "sales_pq": sales_pq,
             "sales_gr": sales_gr,
-            "sales_p": sales_p,
-            "sales_amount_q": amount_pq + amount_gr + amount_p,
+            "sales_p": sales_other,
+            "sales_amount_q": family_payload["sales_amount_q"],
             "final_e": final_pq + final_gr,
             "final_pq": final_pq,
             "final_gr": final_gr,
-            "final_p": final_p,
+            "final_p": final_other,
         }
 
-    def _get_pos_stock_location(self):
-        self.ensure_one()
+    def _build_summary_text(self, total_amount_q, summary_lines):
+        text = _("Reporte generado correctamente.\n")
+        text += _("Total general: Q%(amount).2f\n\n") % {"amount": total_amount_q}
+        if summary_lines:
+            text += _("Totales por categoría:\n")
+            text += "\n".join(summary_lines)
+        return text
+
+    # =========================================================
+    # CÁLCULOS
+    # =========================================================
+
+    def _get_stock_qty_at_datetime(self, product, dt_value):
+        if not product or not dt_value:
+            return 0.0
+
         warehouse = self.session_id.config_id.picking_type_id.warehouse_id
-        return warehouse.lot_stock_id if warehouse and warehouse.lot_stock_id else False
+        if not warehouse or not warehouse.lot_stock_id:
+            return 0.0
 
-    def _get_stock_qty_at_datetime(self, products, dt_value):
-        if not products or not dt_value:
-            return 0.0
-        location = self._get_pos_stock_location()
-        if not location:
-            return 0.0
-        qty = 0.0
-        for product in products:
-            qty += product.with_context(to_date=dt_value, location=location.id).qty_available or 0.0
-        return qty
+        qty = product.with_context(
+            to_date=dt_value,
+            location=warehouse.lot_stock_id.id,
+        ).qty_available
 
-    def _get_income_qty_for_session(self, products, start_dt, end_dt):
-        if not products:
+        return qty or 0.0
+
+    def _get_income_qty_for_session(self, product, start_dt, end_dt):
+        if not product:
             return 0.0
-        location_dest = self._get_pos_stock_location()
+
+        warehouse = self.session_id.config_id.picking_type_id.warehouse_id
+        location_dest = warehouse.lot_stock_id if warehouse else False
         if not location_dest:
             return 0.0
+
         moves = self.env["stock.move"].search([
-            ("product_id", "in", products.ids),
+            ("product_id", "=", product.id),
             ("state", "=", "done"),
             ("date", ">=", start_dt),
             ("date", "<=", end_dt),
@@ -226,39 +359,54 @@ class PasteleriaPosDailyReport(models.Model):
         ])
         return sum(moves.mapped("product_uom_qty"))
 
-    def _get_sales_qty_amount_for_session(self, products):
-        if not products:
+    def _get_sales_qty_amount_for_session(self, product):
+        if not product:
             return 0.0, 0.0
+
         lines = self.env["pos.order.line"].search([
             ("order_id.session_id", "=", self.session_id.id),
-            ("product_id", "in", products.ids),
+            ("product_id", "=", product.id),
             ("order_id.state", "in", ["paid", "done", "invoiced"]),
         ])
+
         qty = sum(lines.mapped("qty"))
         amount = sum(lines.mapped("price_subtotal_incl"))
         return qty, amount
 
+    # =========================================================
+    # EXCEL / PDF
+    # =========================================================
+
     def _generate_excel_file(self):
         self.ensure_one()
+
+        if not self.report_payload:
+            raise ValidationError(_("Este reporte aún no tiene payload calculado. Regenera el reporte primero."))
+
+        payload = json.loads(self.report_payload)
+
         output = io.BytesIO()
         workbook = None
+
         try:
             import xlsxwriter
+
             workbook = xlsxwriter.Workbook(output, {"in_memory": True})
             sheet = workbook.add_worksheet("Reporte Final Día")
 
             fmt_title = workbook.add_format({"bold": True, "font_size": 14, "align": "center"})
-            fmt_header = workbook.add_format({"bold": True, "border": 1, "align": "center", "valign": "vcenter", "bg_color": "#D9E2F3"})
+            fmt_header = workbook.add_format({"bold": True, "border": 1, "align": "center", "valign": "vcenter", "bg_color": "#D9EAD3"})
             fmt_cell = workbook.add_format({"border": 1, "align": "center"})
             fmt_text = workbook.add_format({"border": 1})
-            fmt_section = workbook.add_format({"bold": True, "border": 1, "bg_color": "#F4CCCC"})
-            fmt_total = workbook.add_format({"bold": True, "border": 1, "align": "center", "bg_color": "#FFF2CC"})
+            fmt_category = workbook.add_format({"bold": True, "border": 1, "bg_color": "#F4CCCC"})
+            fmt_subtotal = workbook.add_format({"bold": True, "border": 1, "bg_color": "#FFF2CC"})
+            fmt_total = workbook.add_format({"bold": True, "border": 1, "align": "center", "bg_color": "#D9D2E9"})
 
             sheet.set_column("A:A", 30)
-            sheet.set_column("B:R", 10)
+            sheet.set_column("B:ZZ", 12)
 
             row = 0
-            sheet.merge_range(row, 0, row, 17, "PASTELERÍA - REPORTE FINAL DEL DÍA", fmt_title)
+            sheet.merge_range(row, 0, row, 20, "PASTELERÍA - REPORTE FINAL DEL DÍA", fmt_title)
             row += 2
 
             sheet.write(row, 0, "Sesión", fmt_header)
@@ -269,77 +417,67 @@ class PasteleriaPosDailyReport(models.Model):
             sheet.write(row, 5, str(self.report_date or ""), fmt_cell)
             row += 2
 
-            headers = [
-                "Descripción",
-                "Exist. E", "Exist. Pq", "Exist. Gr", "Exist. P",
-                "Ing. E", "Ing. Pq", "Ing. Gr", "Ing. P",
-                "Venta E", "Venta Pq", "Venta Gr", "Venta P",
-                "VTA-Q",
-                "Saldo E", "Saldo Pq", "Saldo Gr", "Saldo P",
-            ]
-            for col, header in enumerate(headers):
-                sheet.write(row, col, header, fmt_header)
-            row += 1
+            for category in payload["categories"]:
+                variants = category["variants"]
 
-            current_category = None
-            category_start_row = None
-            category_total_q = 0.0
+                # Título de categoría
+                sheet.merge_range(row, 0, row, max(1, 1 + len(variants) * 4), category["category_name"], fmt_category)
+                row += 1
 
-            for line in self.line_ids.sorted("sequence"):
-                if line.line_type == "section":
-                    if current_category is not None:
-                        sheet.merge_range(row, 0, row, 12, f"Subtotal {current_category}", fmt_total)
-                        sheet.write(row, 13, category_total_q, fmt_total)
-                        for col in range(14, 18):
-                            sheet.write(row, col, "", fmt_total)
-                        row += 1
+                headers = ["Descripción"]
+                for var_code in variants:
+                    meta = self.VARIANT_META.get(var_code, {"short": var_code})
+                    short = meta["short"]
+                    headers.extend([
+                        f"Exist. {short}",
+                        f"Ing. {short}",
+                        f"Venta {short}",
+                        f"Saldo {short}",
+                    ])
+                headers.append("VTA-Q")
 
-                    current_category = line.display_name
-                    category_total_q = 0.0
-                    category_start_row = row
-                    sheet.merge_range(row, 0, row, 17, current_category, fmt_section)
+                for col, header in enumerate(headers):
+                    sheet.write(row, col, header, fmt_header)
+                row += 1
+
+                for family in category["families"]:
+                    col = 0
+                    sheet.write(row, col, family["family_name"], fmt_text)
+                    col += 1
+
+                    for var_code in variants:
+                        values = family["variants"].get(var_code, {})
+                        sheet.write(row, col, values.get("exist", 0.0), fmt_cell)
+                        col += 1
+                        sheet.write(row, col, values.get("income", 0.0), fmt_cell)
+                        col += 1
+                        sheet.write(row, col, values.get("sales", 0.0), fmt_cell)
+                        col += 1
+                        sheet.write(row, col, values.get("final", 0.0), fmt_cell)
+                        col += 1
+
+                    sheet.write(row, col, family["sales_amount_q"], fmt_cell)
                     row += 1
-                    continue
 
-                category_total_q += line.sales_amount_q
-                sheet.write(row, 0, line.display_name or "", fmt_text)
-                sheet.write(row, 1, line.exist_e, fmt_cell)
-                sheet.write(row, 2, line.exist_pq, fmt_cell)
-                sheet.write(row, 3, line.exist_gr, fmt_cell)
-                sheet.write(row, 4, line.exist_p, fmt_cell)
-                sheet.write(row, 5, line.income_e, fmt_cell)
-                sheet.write(row, 6, line.income_pq, fmt_cell)
-                sheet.write(row, 7, line.income_gr, fmt_cell)
-                sheet.write(row, 8, line.income_p, fmt_cell)
-                sheet.write(row, 9, line.sales_e, fmt_cell)
-                sheet.write(row, 10, line.sales_pq, fmt_cell)
-                sheet.write(row, 11, line.sales_gr, fmt_cell)
-                sheet.write(row, 12, line.sales_p, fmt_cell)
-                sheet.write(row, 13, line.sales_amount_q, fmt_cell)
-                sheet.write(row, 14, line.final_e, fmt_cell)
-                sheet.write(row, 15, line.final_pq, fmt_cell)
-                sheet.write(row, 16, line.final_gr, fmt_cell)
-                sheet.write(row, 17, line.final_p, fmt_cell)
-                row += 1
+                # subtotal categoría
+                sheet.write(row, 0, f"Subtotal {category['category_name']}", fmt_subtotal)
+                for c in range(1, len(headers) - 1):
+                    sheet.write(row, c, "", fmt_subtotal)
+                sheet.write(row, len(headers) - 1, category["category_total"], fmt_subtotal)
+                row += 2
 
-            if current_category is not None:
-                sheet.merge_range(row, 0, row, 12, f"Subtotal {current_category}", fmt_total)
-                sheet.write(row, 13, category_total_q, fmt_total)
-                for col in range(14, 18):
-                    sheet.write(row, col, "", fmt_total)
-                row += 1
-
-            sheet.merge_range(row, 0, row, 12, "TOTAL Q", fmt_total)
-            sheet.write(row, 13, self.total_amount_q, fmt_total)
-            for col in range(14, 18):
-                sheet.write(row, col, "", fmt_total)
+            sheet.merge_range(row, 0, row, 3, "TOTAL GENERAL Q", fmt_total)
+            sheet.write(row, 4, payload["total_amount_q"], fmt_total)
 
             workbook.close()
             output.seek(0)
+
+            filename = f"reporte_final_dia_{self.session_id.id}.xlsx"
             self.write({
                 "excel_file": base64.b64encode(output.read()),
-                "excel_filename": f"reporte_final_dia_{self.session_id.id}.xlsx",
+                "excel_filename": filename,
             })
+
         finally:
             if workbook:
                 try:
@@ -350,12 +488,19 @@ class PasteleriaPosDailyReport(models.Model):
 
     def _generate_pdf_file(self):
         self.ensure_one()
-        report_action = self.env.ref("pasteleria_pos_reporte_cierre_dia.action_report_daily_report_pdf", raise_if_not_found=False)
+
+        report_action = self.env.ref(
+            "pasteleria_pos_reporte_cierre_dia.action_report_daily_report_pdf",
+            raise_if_not_found=False,
+        )
         if not report_action:
             return False
+
         pdf_content, _content_type = report_action._render_qweb_pdf(self.id)
+        filename = f"reporte_final_dia_{self.session_id.id}.pdf"
+
         self.write({
             "pdf_file": base64.b64encode(pdf_content),
-            "pdf_filename": f"reporte_final_dia_{self.session_id.id}.pdf",
+            "pdf_filename": filename,
         })
         return True

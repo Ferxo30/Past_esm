@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="seq_pasteleria_pos_daily_report" model="ir.sequence">
+        <field name="name">Reporte Final del Día POS</field>
+        <field name="code">pasteleria.pos.daily.report</field>
+        <field name="prefix">RFD/%(year)s/</field>
+        <field name="padding">5</field>
+    </record>
+
+    <record id="template_line_tres_leches" model="pasteleria.pos.report.template.line">
+        <field name="sequence">10</field>
+        <field name="name">Tres Leches</field>
+    </record>
+    <record id="template_line_tiramisu" model="pasteleria.pos.report.template.line">
+        <field name="sequence">20</field>
+        <field name="name">Tiramisú</field>
+    </record>
+    <record id="template_line_fresa_crema" model="pasteleria.pos.report.template.line">
+        <field name="sequence">30</field>
+        <field name="name">Fresa c/Crema</field>
+    </record>
+</odoo>

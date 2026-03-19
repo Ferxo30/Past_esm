@@ -7,5 +7,7 @@
         <field name="report_name">pasteleria_pos_reporte_cierre_dia.report_daily_report_pdf</field>
         <field name="report_file">pasteleria_pos_reporte_cierre_dia.report_daily_report_pdf</field>
         <field name="print_report_name">'Reporte Final del Día - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="model_pasteleria_pos_daily_report"/>
+        <field name="binding_type">report</field>
     </record>
 </odoo>

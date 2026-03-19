@@ -10,7 +10,7 @@
                 <field name="session_id"/>
                 <field name="config_id"/>
                 <field name="user_id"/>
-                <field name="total_amount_q"/>
+                <field name="total_amount_q" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                 <field name="state"/>
             </list>
         </field>
@@ -24,65 +24,93 @@
                 <header>
                     <button name="action_regenerate_report" type="object" string="Regenerar" class="btn-primary"/>
                     <button name="action_download_excel" type="object" string="Descargar Excel"/>
-                    <button name="action_download_pdf" type="object" string="Descargar PDF"/>
+                    <button name="action_download_pdf" type="object" string="Descargar PDF" invisible="1"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,generated,error"/>
                 </header>
+
                 <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+
                     <group>
-                        <group>
-                            <field name="name"/>
-                            <field name="session_id"/>
+                        <group string="Información general">
+                            <field name="session_id" readonly="1"/>
                             <field name="config_id" readonly="1"/>
-                            <field name="user_id"/>
+                            <field name="user_id" readonly="1"/>
+                            <field name="report_date" readonly="1"/>
                         </group>
-                        <group>
-                            <field name="report_date"/>
-                            <field name="date_open"/>
-                            <field name="date_close"/>
-                            <field name="total_amount_q"/>
+                        <group string="Control de sesión">
+                            <field name="date_open" readonly="1"/>
+                            <field name="date_close" readonly="1"/>
+                            <field name="total_amount_q" widget="monetary" options="{'currency_field': 'currency_id'}" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
                         </group>
                     </group>
 
                     <notebook>
-                        <page string="Detalle">
-                            <field name="line_ids">
-                                <list create="false" delete="false">
-                                    <field name="sequence"/>
-                                    <field name="line_type"/>
-                                    <field name="category_name"/>
-                                    <field name="display_name"/>
-                                    <field name="exist_e"/>
-                                    <field name="exist_pq"/>
-                                    <field name="exist_gr"/>
-                                    <field name="exist_p"/>
-                                    <field name="income_e"/>
-                                    <field name="income_pq"/>
-                                    <field name="income_gr"/>
-                                    <field name="income_p"/>
-                                    <field name="sales_e"/>
-                                    <field name="sales_pq"/>
-                                    <field name="sales_gr"/>
-                                    <field name="sales_p"/>
-                                    <field name="sales_amount_q"/>
-                                    <field name="final_e"/>
-                                    <field name="final_pq"/>
-                                    <field name="final_gr"/>
-                                    <field name="final_p"/>
+                        <page string="Detalle resumen">
+                            <field name="line_ids" nolabel="1">
+                                <list create="false"
+                                      delete="false"
+                                      decoration-bf="line_type == 'category'"
+                                      decoration-info="line_type == 'subtotal'"
+                                      decoration-muted="line_type == 'category'">
+                                    <field name="sequence" optional="hide"/>
+                                    <field name="line_type" string="Tipo"/>
+                                    <field name="category_name" string="Categoría"/>
+                                    <field name="display_name" string="Descripción"/>
+
+                                    <field name="exist_e" string="Exist. E"/>
+                                    <field name="exist_pq" string="Exist. Pq"/>
+                                    <field name="exist_gr" string="Exist. Gr"/>
+                                    <field name="exist_p" string="Exist. Otras"/>
+
+                                    <field name="income_e" string="Ing. E" optional="hide"/>
+                                    <field name="income_pq" string="Ing. Pq" optional="hide"/>
+                                    <field name="income_gr" string="Ing. Gr" optional="hide"/>
+                                    <field name="income_p" string="Ing. Otras" optional="hide"/>
+
+                                    <field name="sales_e" string="Venta E"/>
+                                    <field name="sales_pq" string="Venta Pq"/>
+                                    <field name="sales_gr" string="Venta Gr"/>
+                                    <field name="sales_p" string="Venta Otras"/>
+
+                                    <field name="sales_amount_q" string="VTA-Q" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+
+                                    <field name="final_e" string="Saldo E"/>
+                                    <field name="final_pq" string="Saldo Pq"/>
+                                    <field name="final_gr" string="Saldo Gr"/>
+                                    <field name="final_p" string="Saldo Otras"/>
                                 </list>
                             </field>
                         </page>
 
-                        <page string="Archivos">
+                        <page string="Resumen">
                             <group>
-                                <field name="excel_filename" readonly="1"/>
-                                <field name="excel_file" filename="excel_filename" readonly="1"/>
-                                <field name="pdf_filename" readonly="1"/>
-                                <field name="pdf_file" filename="pdf_filename" readonly="1"/>
+                                <field name="summary_text" readonly="1" nolabel="1"/>
                             </group>
                         </page>
 
-                        <page string="Resumen">
-                            <field name="summary_text" readonly="1"/>
+                        <page string="Archivos">
+                            <group>
+                                <group string="Excel">
+                                    <field name="excel_filename" readonly="1"/>
+                                    <field name="excel_file" filename="excel_filename" readonly="1"/>
+                                </group>
+                                <group string="PDF">
+                                    <field name="pdf_filename" readonly="1"/>
+                                    <field name="pdf_file" filename="pdf_filename" readonly="1"/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <page string="Técnico" groups="base.group_system">
+                            <group>
+                                <field name="report_payload" readonly="1" nolabel="1"/>
+                            </group>
                         </page>
                     </notebook>
                 </sheet>
@@ -100,11 +128,15 @@
                 <field name="config_id"/>
                 <field name="user_id"/>
                 <field name="report_date"/>
+
                 <filter string="Generados" name="generated" domain="[('state', '=', 'generated')]"/>
+                <filter string="Errores" name="errors" domain="[('state', '=', 'error')]"/>
+
                 <group expand="0" string="Agrupar por">
                     <filter string="Fecha" name="group_by_report_date" context="{'group_by': 'report_date'}"/>
                     <filter string="POS" name="group_by_pos" context="{'group_by': 'config_id'}"/>
                     <filter string="Usuario" name="group_by_user" context="{'group_by': 'user_id'}"/>
+                    <filter string="Estado" name="group_by_state" context="{'group_by': 'state'}"/>
                 </group>
             </search>
         </field>

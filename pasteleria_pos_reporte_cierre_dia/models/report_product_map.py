@@ -20,12 +20,25 @@ class PasteleriaPosReportProductMap(models.Model):
     category_name = fields.Char(string="Categoría")
     family_name = fields.Char(string="Familia", required=True)
     variant_raw = fields.Char(string="Variante detectada")
+
     variant_normalized = fields.Selection(
-        [("pq", "Pq"), ("gr", "Gr"), ("p", "P"), ("other", "Otra")],
+        [
+            ("p", "Porción"),
+            ("p5", "5 porciones"),
+            ("pq", "Pequeño 8-10"),
+            ("gr", "Grande 12-16"),
+            ("xg", "25-30 porciones"),
+            ("xg40", "40 porciones"),
+            ("pl40_45", "40-45 porciones"),
+            ("pl55_60", "55-60 porciones"),
+            ("pl100", "100 porciones"),
+            ("other", "Otra"),
+        ],
         string="Variante normalizada",
         default="other",
         required=True,
     )
+
     include_in_report = fields.Boolean(string="Incluir en reporte", default=True)
     notes = fields.Text(string="Notas")
 
@@ -37,8 +50,8 @@ class PasteleriaPosReportProductMap(models.Model):
         )
     ]
 
-    @api.model
     def action_rebuild_from_pos_products(self):
+        self = self.sudo()
         Product = self.env["product.product"]
         maps = self.search([])
         existing_by_product = {m.product_id.id: m for m in maps}
@@ -102,38 +115,57 @@ class PasteleriaPosReportProductMap(models.Model):
 
     @api.model
     def _infer_family_and_variant_from_product(self, product):
-        attr_names = []
-        if hasattr(product, "product_template_attribute_value_ids"):
-            attr_names = [
-                (ptav.product_attribute_value_id.name or "").strip()
-                for ptav in product.product_template_attribute_value_ids
-                if ptav.product_attribute_value_id
-            ]
+        tmpl = product.product_tmpl_id
+        family = tmpl.name or product.display_name or product.name
+        variant_raw = False
+        variant_normalized = "other"
 
-        for attr_name in attr_names:
-            normalized = self._normalize_variant_name(attr_name)
+        # 1) Priorizar SOLO atributos cuyo nombre empiece por "Tamaño"
+        ptav_records = getattr(product, "product_template_attribute_value_ids", False) or self.env["product.template.attribute.value"]
+
+        size_attr_values = []
+        for ptav in ptav_records:
+            attr_name = (ptav.attribute_id.name or "").strip().lower() if ptav.attribute_id else ""
+            value_name = (ptav.product_attribute_value_id.name or "").strip() if ptav.product_attribute_value_id else ""
+            if attr_name.startswith("tamaño") or attr_name.startswith("tamano"):
+                size_attr_values.append(value_name)
+
+        for value_name in size_attr_values:
+            normalized = self._normalize_variant_name(value_name)
             if normalized != "other":
-                family = product.product_tmpl_id.name or product.display_name
-                return family.strip(), attr_name, normalized
+                variant_raw = value_name
+                variant_normalized = normalized
+                return family.strip(), variant_raw, variant_normalized
 
-        full_name = " ".join(filter(None, [product.display_name, product.name, product.product_tmpl_id.name]))
-        normalized = self._normalize_variant_name(full_name)
+        # 2) Fallback: intentar por nombre completo del producto
+        full_name = " ".join(filter(None, [product.display_name, product.name, tmpl.name]))
+        variant_normalized = self._normalize_variant_name(full_name)
 
-        raw = False
-        family = product.product_tmpl_id.name or product.display_name or product.name
-        if normalized != "other":
-            token_pattern = r'(?i)(?:\bPq\b|\bGr\b|\bP\b|peque(?:ñ|n)o|grande|porci(?:ó|o)n)'
+        if variant_normalized != "other":
+            token_pattern = (
+                r"(?i)"
+                r"("
+                    r"\b(?:1\s*)?porci(?:ó|o)?n\b|"
+                    r"\b5\s*porciones?\b|"
+                    r"\bpeque(?:ñ|n)o\s*8\s*-\s*10\b|"
+                    r"\b8\s*-\s*10\b|"
+                    r"\bgrande\s*12\s*-\s*16\b|"
+                    r"\b12\s*-\s*16\b|"
+                    r"\b25\s*-\s*30\s*porciones?\b|"
+                    r"\b25\s*-\s*30\b|"
+                    r"\b40\s*porciones?\b|"
+                    r"\b40\s*-\s*45\s*porciones?\b|"
+                    r"\b40\s*-\s*45\b|"
+                    r"\b55\s*-\s*60\s*porciones?\b|"
+                    r"\b55\s*-\s*60\b|"
+                    r"\b100\s*porciones?\b|"
+                    r"\b100\b"
+                r")"
+            )
             match = re.search(token_pattern, full_name or "")
-            raw = match.group(0) if match else False
-            cleaned = re.sub(
-                r'(?i)\s*[-/()]?\s*(?:Pq|Gr|P|peque(?:ñ|n)o|grande|porci(?:ó|o)n)\s*$',
-                '',
-                family
-            ).strip(' -_/')
-            if cleaned:
-                family = cleaned
+            variant_raw = match.group(0) if match else False
 
-        return family.strip(), raw, normalized
+        return family.strip(), variant_raw, variant_normalized
 
     @api.model
     def _normalize_variant_name(self, text):
@@ -141,13 +173,47 @@ class PasteleriaPosReportProductMap(models.Model):
         if not value:
             return "other"
 
+        # Orden importante: primero casos más específicos
         patterns = {
-            "pq": [r"\bpq\b", r"peque(?:ñ|n)o", r"10\s*porciones", r"12\s*porciones"],
-            "gr": [r"\bgr\b", r"grande", r"15\s*porciones", r"20\s*porciones"],
-            "p": [r"\bp\b", r"porci(?:ó|o)n", r"slice"],
+            "p5": [
+                r"\b5\s*porciones?\b",
+            ],
+            "p": [
+                r"\bporci(?:ó|o)?n\b",
+                r"\b1\s*porci(?:ó|o)?n\b",
+            ],
+            "pq": [
+                r"\bpeque(?:ñ|n)o\s*8\s*-\s*10\b",
+                r"\b8\s*-\s*10\b",
+            ],
+            "gr": [
+                r"\bgrande\s*12\s*-\s*16\b",
+                r"\b12\s*-\s*16\b",
+            ],
+            "xg": [
+                r"\b25\s*-\s*30\s*porciones?\b",
+                r"\b25\s*-\s*30\b",
+            ],
+            "xg40": [
+                r"\b40\s*porciones?\b",
+            ],
+            "pl40_45": [
+                r"\b40\s*-\s*45\s*porciones?\b",
+                r"\b40\s*-\s*45\b",
+            ],
+            "pl55_60": [
+                r"\b55\s*-\s*60\s*porciones?\b",
+                r"\b55\s*-\s*60\b",
+            ],
+            "pl100": [
+                r"\b100\s*porciones?\b",
+                r"\b100\b",
+            ],
         }
+
         for normalized, regexes in patterns.items():
             for regex in regexes:
                 if re.search(regex, value, flags=re.IGNORECASE):
                     return normalized
+
         return "other"

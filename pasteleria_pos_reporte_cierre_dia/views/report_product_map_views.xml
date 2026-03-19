@@ -25,7 +25,7 @@
                 <header>
                     <button name="action_rebuild_from_pos_products"
                             type="object"
-                            string="Reconstruir desde POS"
+                            string="Actualizar mapa desde POS"
                             class="btn-primary"/>
                 </header>
                 <sheet>
@@ -78,5 +78,6 @@
         <field name="res_model">pasteleria.pos.report.product.map</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_pasteleria_report_product_map_search"/>
+        <field name="context">{}</field>
     </record>
 </odoo>
