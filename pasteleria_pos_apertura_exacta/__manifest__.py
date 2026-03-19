@@ -22,11 +22,7 @@ Solamente:
         "security/ir.model.access.csv",
         "views/pos_config_views.xml",
     ],
-    "assets": {
-        "point_of_sale._assets_pos": [
-            "pasteleria_pos_apertura_exacta/static/src/js/opening_validation_notice.js",
-        ],
-    },
+
     "installable": True,
     "application": False,
 }

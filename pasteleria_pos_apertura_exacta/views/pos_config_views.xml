@@ -5,26 +5,18 @@
         <field name="model">pos.config</field>
         <field name="inherit_id" ref="point_of_sale.pos_config_view_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//setting[@id='cash_control']" position="after">
-                <setting id="pasteleria_cash_opening_exact_validation"
-                         string="Validación exacta de apertura"
-                         help="Exige que el monto de apertura coincida exactamente con el monto esperado configurado.">
-                    <div class="content-group">
-                        <div class="row mt16">
-                            <label for="x_cash_opening_exact_enabled" class="col-lg-4 o_light_label"/>
-                            <field name="x_cash_opening_exact_enabled"/>
-                        </div>
-                        <div class="row mt16">
-                            <label for="x_cash_opening_expected_amount" class="col-lg-4 o_light_label"/>
-                            <field name="x_cash_opening_expected_amount"
-                                   attrs="{'readonly': [('x_cash_opening_exact_enabled', '=', False)]}"/>
-                        </div>
-                        <div class="text-muted mt8">
-                            Cuando el POS abra la caja, el monto digitado debe coincidir exactamente con este valor.
-                            Este módulo no reemplaza la sesión nativa del POS; solo agrega la validación.
-                        </div>
+            <xpath expr="//form/sheet" position="inside">
+                <group string="Apertura exacta de caja">
+                    <group>
+                        <field name="x_cash_opening_exact_enabled"/>
+                        <field name="x_cash_opening_expected_amount"
+                               readonly="not x_cash_opening_exact_enabled"/>
+                    </group>
+                    <div class="text-muted">
+                        Cuando esta opción está activa, el monto contado al abrir caja debe coincidir exactamente con el monto esperado configurado.
+                        Este módulo no reemplaza la sesión nativa del POS; solo agrega la validación.
                     </div>
-                </setting>
+                </group>
             </xpath>
         </field>
     </record>
