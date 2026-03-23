@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_transferencias" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.transferencias.pos</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="point_of_sale.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='point_of_sale']" position="inside">
+                <block title="Transferencias internas entre sucursales">
+                    <setting string="Permitir transferencias internas"
+                             help="Activa el envío de productos entre puntos de venta.">
+                        <field name="pos_transfer_allow_internal_transfers"/>
+                    </setting>
+
+                    <setting string="Tipo de operación interna"
+                             help="Tipo de picking interno que usará la transferencia."
+                             invisible="not pos_transfer_allow_internal_transfers">
+                        <field name="pos_transfer_operation_type_id"/>
+                    </setting>
+
+                    <setting string="Ubicación origen"
+                             help="Ubicación desde la que este POS enviará producto."
+                             invisible="not pos_transfer_allow_internal_transfers">
+                        <field name="pos_transfer_source_location_id"/>
+                    </setting>
+
+                    <setting string="POS destino permitidos"
+                             help="Sucursales a las que este POS puede enviar producto."
+                             invisible="not pos_transfer_allow_internal_transfers">
+                        <field name="pos_transfer_allowed_destination_pos_ids" widget="many2many_tags"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>
