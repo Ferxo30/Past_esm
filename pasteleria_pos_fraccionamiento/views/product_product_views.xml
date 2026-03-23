@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- Formulario de variante -->
+    <record id="view_product_product_form_fraction" model="ir.ui.view">
+        <field name="name">product.product.form.pasteleria.fraction</field>
+        <field name="model">product.product</field>
+        <field name="inherit_id" ref="product.product_normal_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Pastelería">
+                    <group string="Fraccionamiento de pasteles">
+                        <group>
+                            <field name="can_be_fraction_source"/>
+                            <field name="is_cake_slice"/>
+                            <field name="cake_slice_product_id"
+                                   domain="[('product_tmpl_id', '=', product_tmpl_id), ('id', '!=', id)]"
+                                   invisible="is_cake_slice"/>
+                        </group>
+                        <group>
+                            <field name="expected_slice_min" invisible="is_cake_slice"/>
+                            <field name="expected_slice_max" invisible="is_cake_slice"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Vista propia editable para configuración masiva -->
+    <record id="view_product_product_fraction_config_list" model="ir.ui.view">
+        <field name="name">product.product.fraction.config.list</field>
+        <field name="model">product.product</field>
+        <field name="arch" type="xml">
+            <list string="Configuración de fraccionamiento" editable="bottom" multi_edit="1">
+                <field name="default_code" string="Referencia"/>
+                <field name="name" string="Nombre"/>
+                <field name="product_template_attribute_value_ids" string="Valores de variante" widget="many2many_tags" optional="show"/>
+                <field name="available_in_pos" optional="show"/>
+                <field name="can_be_fraction_source" string="Se puede fraccionar"/>
+                <field name="is_cake_slice" string="Es porción"/>
+                <field name="cake_slice_product_id" string="Variante porción relacionada" optional="show"
+                       domain="[('product_tmpl_id', '=', product_tmpl_id), ('id', '!=', id)]"/>
+                <field name="expected_slice_min" string="Mín. porciones" optional="show"/>
+                <field name="expected_slice_max" string="Máx. porciones" optional="show"/>
+                <field name="qty_available" string="A la mano" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Búsqueda para la vista propia -->
+    <record id="view_product_product_fraction_config_search" model="ir.ui.view">
+        <field name="name">product.product.fraction.config.search</field>
+        <field name="model">product.product</field>
+        <field name="arch" type="xml">
+            <search string="Buscar configuración de fraccionamiento">
+                <field name="name"/>
+                <field name="default_code"/>
+                <field name="product_tmpl_id"/>
+                <filter name="filter_fraction_source"
+                        string="Fraccionables"
+                        domain="[('can_be_fraction_source', '=', True)]"/>
+                <filter name="filter_slice"
+                        string="Porciones"
+                        domain="[('is_cake_slice', '=', True)]"/>
+                <filter name="filter_pos"
+                        string="Disponibles en POS"
+                        domain="[('available_in_pos', '=', True)]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="group_by_template"
+                            string="Plantilla"
+                            context="{'group_by': 'product_tmpl_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Acción propia -->
+    <record id="action_product_product_fraction_config" model="ir.actions.act_window">
+        <field name="name">Configuración Fraccionamiento</field>
+        <field name="res_model">product.product</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_product_product_fraction_config_list"/>
+        <field name="search_view_id" ref="view_product_product_fraction_config_search"/>
+        <field name="domain">[('sale_ok', '=', True)]</field>
+        <field name="context">{'search_default_filter_pos': 1}</field>
+    </record>
+
+</odoo>

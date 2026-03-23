@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="group_pasteleria_fraction_user" model="res.groups">
+        <field name="name">Fraccionamiento de pasteles / Usuario</field>
+        <field name="category_id" ref="base.module_category_inventory_inventory"/>
+    </record>
+
+    <record id="group_pasteleria_fraction_manager" model="res.groups">
+        <field name="name">Fraccionamiento de pasteles / Administrador</field>
+        <field name="category_id" ref="base.module_category_inventory_inventory"/>
+        <field name="implied_ids" eval="[(4, ref('pasteleria_pos_fraccionamiento.group_pasteleria_fraction_user'))]"/>
+    </record>
+</odoo>

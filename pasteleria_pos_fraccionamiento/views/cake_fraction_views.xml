@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="view_pasteleria_cake_fraction_list" model="ir.ui.view">
+        <field name="name">pasteleria.cake.fraction.list</field>
+        <field name="model">pasteleria.cake.fraction</field>
+        <field name="arch" type="xml">
+            <list string="Fraccionamiento">
+                <field name="name"/>
+                <field name="date"/>
+                <field name="warehouse_id"/>
+                <field name="location_id"/>
+                <field name="full_product_id"/>
+                <field name="slice_product_id"/>
+                <field name="qty_full"/>
+                <field name="qty_slices_created"/>
+                <field name="reason_id"/>
+                <field name="user_id"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_pasteleria_cake_fraction_form" model="ir.ui.view">
+        <field name="name">pasteleria.cake.fraction.form</field>
+        <field name="model">pasteleria.cake.fraction</field>
+        <field name="arch" type="xml">
+            <form string="Fraccionamiento de pastel">
+                <header>
+                    <button name="action_confirm"
+                            string="Confirmar"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'draft'"/>
+                    <button name="action_reverse"
+                            string="Revertir"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state != 'done'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,done,reversed,cancel"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_consumption_move"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-sign-out"
+                                invisible="not consumption_move_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Movimiento salida</span>
+                            </div>
+                        </button>
+
+                        <button name="action_open_production_move"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-sign-in"
+                                invisible="not production_move_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Movimiento entrada</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <group>
+                        <group string="Contexto">
+                            <field name="date"/>
+                            <field name="user_id" readonly="1"/>
+                            <field name="source_origin"/>
+                            <field name="pos_config_id"/>
+                            <field name="pos_session_id"/>
+                            <field name="warehouse_id"/>
+                            <field name="location_id"
+                                   domain="[('usage', '=', 'internal'), ('id', 'child_of', warehouse_id.lot_stock_id)]"
+                                   options="{'no_create': True}"/>
+                        </group>
+
+                        <group string="Fraccionamiento">
+                            <field name="full_product_id"/>
+                            <field name="full_available_qty" readonly="1"/>
+                            <field name="slice_product_id"
+                                   readonly="1"
+                                   force_save="1"
+                                   options="{'no_open': True, 'no_create': True}"/>
+                            <field name="qty_full"/>
+                            <field name="qty_slices_created"/>
+                            <field name="reason_id"/>
+                            <field name="note"/>
+                        </group>
+                    </group>
+
+                    <group string="Rangos sugeridos" invisible="not expected_slice_min and not expected_slice_max">
+                        <field name="expected_slice_min" readonly="1"/>
+                        <field name="expected_slice_max" readonly="1"/>
+                        <field name="warning_message" readonly="1" invisible="not warning_message"/>
+                    </group>
+
+                    <notebook>
+                        <page string="Reversión" invisible="state == 'draft'">
+                            <group>
+                                <field name="reverse_of_id" readonly="1"/>
+                                <field name="reversal_fraction_id" readonly="1"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_pasteleria_cake_fraction" model="ir.actions.act_window">
+        <field name="name">Fraccionamiento</field>
+        <field name="res_model">pasteleria.cake.fraction</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>

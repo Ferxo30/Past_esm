@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_pasteleria_fraccionamiento"
+              name="Fraccionamiento"
+              parent="pasteleria_desechos.menu_pasteleria_root"
+              action="action_pasteleria_cake_fraction"
+              sequence="40"
+              groups="pasteleria_desechos.group_pasteleria_cajero,pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
+
+    <menuitem id="menu_pasteleria_fraccionamiento_motivos"
+              name="Motivos Fraccionamiento"
+              parent="pasteleria_desechos.menu_pasteleria_root"
+              action="action_pasteleria_cake_fraction_reason"
+              sequence="41"
+              groups="pasteleria_desechos.group_pasteleria_cajero,pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
+
+    <menuitem id="menu_pasteleria_fraccionamiento_config"
+              name="Configuración Fraccionamiento"
+              parent="pasteleria_desechos.menu_pasteleria_root"
+              action="action_product_product_fraction_config"
+              sequence="42"
+              groups="pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
+
+</odoo>

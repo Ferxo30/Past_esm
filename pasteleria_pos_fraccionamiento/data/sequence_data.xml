@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="seq_pasteleria_cake_fraction" model="ir.sequence">
+        <field name="name">Fraccionamiento de pasteles</field>
+        <field name="code">pasteleria.cake.fraction</field>
+        <field name="prefix">FRAC/</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+    <record id="stock_location_cake_fraction_virtual" model="stock.location">
+        <field name="name">Fraccionamiento pasteles (virtual)</field>
+        <field name="usage">inventory</field>
+        <field name="company_id" eval="False"/>
+    </record>
+</odoo>
