@@ -1,3 +1,101 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates id="template" xml:space="preserve">
+    <t t-name="pasteleria_pos_transferencias.TransferPopup">
+        <Dialog title="'Transferencias entre sucursales'" size="'lg'">
+            <div class="o_pos_transfer_popup">
+                <div class="o_pos_transfer_header">
+                    <div>
+                        <strong>POS origen:</strong>
+                        <span t-esc="props.originPosName"/>
+                    </div>
+                </div>
+
+                <div class="o_pos_transfer_form">
+                    <div class="o_pos_transfer_row">
+                        <label>POS destino</label>
+                        <select t-model="state.destination_pos_id" class="form-select">
+                            <option value="">Seleccionar destino...</option>
+                            <t t-foreach="props.destinations" t-as="dest" t-key="dest.id">
+                                <option t-att-value="dest.id">
+                                    <t t-esc="dest.name"/>
+                                </option>
+                            </t>
+                        </select>
+                    </div>
+
+                    <div class="o_pos_transfer_row o_pos_transfer_addline">
+                        <div>
+                            <label>Producto</label>
+                            <select t-model="state.selected_product_id" class="form-select">
+                                <option value="">Seleccionar producto...</option>
+                                <t t-foreach="props.products" t-as="prod" t-key="prod.id">
+                                    <option t-att-value="prod.id">
+                                        <t t-esc="prod.name"/> -
+                                        Disponible: <t t-esc="prod.qty_available"/>
+                                    </option>
+                                </t>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label>Cantidad</label>
+                            <input type="number" min="1" step="1" t-model="state.qty" class="form-control"/>
+                        </div>
+
+                        <div class="o_pos_transfer_add_btn_wrap">
+                            <button class="btn btn-secondary" t-on-click="addLine">
+                                Agregar línea
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="o_pos_transfer_lines">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Disponible</th>
+                                <th>Cantidad</th>
+                                <th>UoM</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-if="!state.lines.length">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        No hay líneas agregadas.
+                                    </td>
+                                </tr>
+                            </t>
+                            <t t-foreach="state.lines" t-as="line" t-key="line.product_id + '_' + line.qty + '_' + line.product_name">
+                                <tr>
+                                    <td><t t-esc="line.product_name"/></td>
+                                    <td><t t-esc="line.qty_available"/></td>
+                                    <td><t t-esc="line.qty"/></td>
+                                    <td><t t-esc="line.uom_name"/></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-link text-danger"
+                                                t-on-click="() => this.removeLine(state.lines.indexOf(line))">
+                                            Quitar
+                                        </button>
+                                    </td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="o_pos_transfer_footer">
+                    <button class="btn btn-light" t-on-click="props.close">Cancelar</button>
+                    <button class="btn btn-primary"
+                            t-on-click="confirmTransfer"
+                            t-att-disabled="state.loading">
+                        Confirmar transferencia
+                    </button>
+                </div>
+            </div>
+        </Dialog>
+    </t>
 </templates>

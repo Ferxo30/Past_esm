@@ -3,6 +3,7 @@
 import { patch } from "@web/core/utils/patch";
 import { ProductScreen } from "@point_of_sale/app/screens/product_screen/product_screen";
 import { onMounted, onWillUnmount } from "@odoo/owl";
+import { TransferPopup } from "./transfer_popup";
 
 console.log("[Pasteleria Transferencias] transfer_button.js cargado ✅");
 
@@ -10,40 +11,42 @@ function getOrm(ctx) {
     return ctx.env?.services?.orm || ctx.orm || null;
 }
 
+function getDialog(ctx) {
+    return ctx.env?.services?.dialog || null;
+}
+
 function getPosConfigId(ctx) {
     return ctx.pos?.config?.id || ctx.env?.pos?.config?.id || null;
 }
 
-async function openTransfersBackend(ctx) {
+async function openTransfersPopup(ctx) {
     const orm = getOrm(ctx);
+    const dialog = getDialog(ctx);
     const posConfigId = getPosConfigId(ctx);
 
-    if (!orm) {
-        console.error("[Pasteleria Transferencias] ORM no disponible");
+    if (!orm || !dialog || !posConfigId) {
         window.alert("No se pudo abrir Transferencias.");
         return;
     }
 
     try {
-        const result = await orm.call(
+        const data = await orm.call(
             "pasteleria.pos.transfer",
-            "get_pos_transfer_backend_url",
+            "pos_get_transfer_popup_data",
             [posConfigId]
         );
 
-        if (!result?.url) {
-            window.alert("No se pudo construir la URL de Transferencias.");
-            return;
-        }
-
-        window.open(result.url, "_blank");
+        dialog.add(TransferPopup, {
+            originPosId: data.origin_pos_id,
+            originPosName: data.origin_pos_name,
+            destinations: data.destinations,
+            products: data.products,
+        });
     } catch (error) {
-        console.error("[Pasteleria Transferencias] Error abriendo backend:", error);
-        const message =
-            error?.data?.message ||
-            error?.message ||
-            "No se pudo abrir la vista de Transferencias.";
-        window.alert(message);
+        console.error("[Pasteleria Transferencias] Error cargando popup:", error);
+        window.alert(
+            error?.data?.message || error?.message || "No se pudo abrir el popup de Transferencias."
+        );
     }
 }
 
@@ -78,18 +81,18 @@ function insertTransferMenuItem(ctx) {
     const item = document.createElement("button");
     item.id = "btn_pos_transfer_menu";
     item.type = "button";
-    item.className = "list-group-item dropdown-item";
-    item.style.width = "100%";
-    item.style.textAlign = "left";
-    item.textContent = "Transferencias";
+    item.className = "dropdown-item o_pos_transfer_menu_item";
+    item.innerHTML = `
+        <div class="o_pos_transfer_menu_inner">
+            <span class="o_pos_transfer_menu_label">Transferencias</span>
+        </div>
+    `;
 
     item.addEventListener("click", async () => {
-        console.log("[Pasteleria Transferencias] click menú transferencias");
-        await openTransfersBackend(ctx);
+        await openTransfersPopup(ctx);
     });
 
     container.appendChild(item);
-    console.log("[Pasteleria Transferencias] item insertado en menú hamburguesa ✅");
     return true;
 }
 

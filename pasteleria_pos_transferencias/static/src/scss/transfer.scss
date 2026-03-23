@@ -1,1 +1,70 @@
-/* Estilos base para futuras transferencias POS */
+.o_pos_transfer_menu_item {
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: transparent;
+    padding: 10px 14px;
+    transition: background-color 0.15s ease;
+}
+
+.o_pos_transfer_menu_item:hover {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+.o_pos_transfer_menu_inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.o_pos_transfer_menu_label {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.o_pos_transfer_popup {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 700px;
+}
+
+.o_pos_transfer_form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.o_pos_transfer_row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.o_pos_transfer_addline {
+    display: grid;
+    grid-template-columns: 1fr 140px 160px;
+    gap: 12px;
+    align-items: end;
+}
+
+.o_pos_transfer_add_btn_wrap {
+    display: flex;
+    align-items: end;
+}
+
+.o_pos_transfer_lines {
+    max-height: 280px;
+    overflow: auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 8px;
+    background: #fff;
+}
+
+.o_pos_transfer_footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}

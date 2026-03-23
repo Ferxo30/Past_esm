@@ -146,7 +146,7 @@ class PasteleriaPosTransfer(models.Model):
             vals = self._prepare_auto_fields_from_vals(vals)
             new_vals_list.append(vals)
         return super().create(new_vals_list)
-    
+
     @api.model
     def get_pos_transfer_backend_url(self, pos_config_id=False):
         action = self.env.ref("pasteleria_pos_transferencias.action_pasteleria_pos_transfer", raise_if_not_found=False)
@@ -326,6 +326,77 @@ class PasteleriaPosTransfer(models.Model):
                 raise UserError(_("No puedes cancelar una transferencia que ya generó un picking validado."))
             rec.state = "cancelled"
         return True
+
+    @api.model
+    def pos_get_transfer_popup_data(self, pos_config_id):
+        pos_config = self.env["pos.config"].browse(pos_config_id).exists()
+        if not pos_config:
+            raise UserError(_("No se encontró la configuración del POS."))
+
+        destinations = []
+        for dest in pos_config.allowed_destination_pos_ids:
+            destinations.append({
+                "id": dest.id,
+                "name": dest.name,
+            })
+
+        products = self.env["product.product"].search([
+            ("available_in_pos", "=", True),
+            ("active", "=", True),
+        ])
+
+        product_list = []
+        for product in products:
+            qty_available = product.with_context(
+                location=pos_config.transfer_source_location_id.id
+            ).qty_available if pos_config.transfer_source_location_id else 0.0
+
+            product_list.append({
+                "id": product.id,
+                "name": product.display_name,
+                "qty_available": qty_available,
+                "uom_name": product.uom_id.name,
+            })
+
+        return {
+            "origin_pos_id": pos_config.id,
+            "origin_pos_name": pos_config.name,
+            "destinations": destinations,
+            "products": product_list,
+        }
+
+    @api.model
+    def pos_create_transfer_from_ui(self, payload):
+        origin_pos_id = payload.get("origin_pos_id")
+        destination_pos_id = payload.get("destination_pos_id")
+        lines = payload.get("lines", [])
+
+        if not origin_pos_id:
+            raise UserError(_("No se recibió el POS origen."))
+        if not destination_pos_id:
+            raise UserError(_("Debes seleccionar un POS destino."))
+        if not lines:
+            raise UserError(_("Debes agregar al menos una línea."))
+
+        transfer = self.create({
+            "origin_pos_id": origin_pos_id,
+            "destination_pos_id": destination_pos_id,
+            "line_ids": [
+                (0, 0, {
+                    "product_id": line["product_id"],
+                    "qty": line["qty"],
+                })
+                for line in lines
+            ],
+        })
+
+        transfer.action_confirm()
+
+        return {
+            "transfer_id": transfer.id,
+            "transfer_name": transfer.name,
+            "picking_id": transfer.picking_id.id if transfer.picking_id else False,
+        }
 
 
 class PasteleriaPosTransferLine(models.Model):
