@@ -24,15 +24,13 @@ class PosSession(models.Model):
         return res
 
     def _create_or_update_daily_report(self):
-        Report = self.env["pasteleria.pos.daily.report"].sudo()
-        Map = self.env["pasteleria.pos.report.product.map"].sudo()
+        Report = self.env["pasteleria.pos.daily.report"]
+        Map = self.env["pasteleria.pos.report.product.map"]
 
         if not Map.search_count([]):
             Map.action_rebuild_from_pos_products()
 
         for session in self:
-            session_sudo = session.sudo()
-
             report = Report.search([("session_id", "=", session.id)], limit=1)
             vals = {
                 "session_id": session.id,
@@ -41,7 +39,6 @@ class PosSession(models.Model):
                 "date_open": session.start_at,
                 "date_close": session.stop_at,
             }
-
             if report:
                 report.write(vals)
             else:
@@ -50,9 +47,6 @@ class PosSession(models.Model):
             try:
                 report._generate_full_report()
             except Exception as e:
-                report.write({
-                    "state": "error",
-                    "summary_text": (report.summary_text or "") + _("\nError generando reporte: %s") % e,
-                })
-
-            session_sudo.daily_report_id = report.id
+                report.state = "error"
+                report.summary_text = (report.summary_text or "") + _("\nError generando reporte: %s") % e
+            session.daily_report_id = report.id
