@@ -3,23 +3,23 @@
 
     <menuitem id="menu_pasteleria_fraccionamiento"
               name="Fraccionamiento"
-              parent="pasteleria_desechos.menu_pasteleria_root"
+              parent="pasteleria_desechos.menu_pasteleria_operacion"
               action="action_pasteleria_cake_fraction"
-              sequence="40"
+              sequence="20"
               groups="pasteleria_desechos.group_pasteleria_cajero,pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
 
     <menuitem id="menu_pasteleria_fraccionamiento_motivos"
-              name="Motivos Fraccionamiento"
-              parent="pasteleria_desechos.menu_pasteleria_root"
+              name="Motivos de Fraccionamiento"
+              parent="pasteleria_desechos.menu_pasteleria_configuracion"
               action="action_pasteleria_cake_fraction_reason"
-              sequence="41"
-              groups="pasteleria_desechos.group_pasteleria_cajero,pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
+              sequence="20"
+              groups="pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
 
     <menuitem id="menu_pasteleria_fraccionamiento_config"
-              name="Configuración Fraccionamiento"
-              parent="pasteleria_desechos.menu_pasteleria_root"
+              name="Configuración de Fraccionamiento"
+              parent="pasteleria_desechos.menu_pasteleria_configuracion"
               action="action_product_product_fraction_config"
-              sequence="42"
+              sequence="30"
               groups="pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
 
 </odoo>

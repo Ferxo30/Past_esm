@@ -1,6 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <menuitem id="menu_pasteleria_root" name="Pastelerías" sequence="10"/>
-    <menuitem id="menu_pasteleria_desechos" name="Desechos" parent="menu_pasteleria_root"
-              action="action_pasteleria_desechos_app" sequence="10"/>
+
+    <menuitem id="menu_pasteleria_operacion"
+              name="Operación"
+              parent="menu_pasteleria_root"
+              sequence="10"
+              groups="pasteleria_desechos.group_pasteleria_cajero,pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
+
+    <menuitem id="menu_pasteleria_reportes"
+              name="Reportes"
+              parent="menu_pasteleria_root"
+              sequence="20"
+              groups="pasteleria_desechos.group_pasteleria_cajero,pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
+
+    <menuitem id="menu_pasteleria_configuracion"
+              name="Configuración"
+              parent="menu_pasteleria_root"
+              sequence="30"
+              groups="pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
+
+    <menuitem id="menu_pasteleria_desechos"
+              name="Desechos"
+              parent="menu_pasteleria_operacion"
+              action="action_pasteleria_desechos_app"
+              sequence="10"
+              groups="pasteleria_desechos.group_pasteleria_cajero,pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
 </odoo>

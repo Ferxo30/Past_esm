@@ -2,8 +2,8 @@
 <odoo>
     <menuitem id="menu_pasteleria_pos_transfer"
               name="Transferencias"
-              parent="pasteleria_desechos.menu_pasteleria_root"
+              parent="pasteleria_desechos.menu_pasteleria_operacion"
               action="action_pasteleria_pos_transfer"
-              sequence="43"
+              sequence="30"
               groups="pasteleria_desechos.group_pasteleria_cajero,pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
 </odoo>

@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <menuitem id="menu_pasteleria_reportes_final_dia"
-              name="Reportes Final del Día"
-              parent="pasteleria_desechos.menu_pasteleria_root"
+              name="Reporte Final del Día"
+              parent="pasteleria_desechos.menu_pasteleria_reportes"
               action="action_pasteleria_pos_daily_report"
-              sequence="20"/>
+              sequence="10"
+              groups="pasteleria_desechos.group_pasteleria_cajero,pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
 
     <menuitem id="menu_pasteleria_reporte_mapa_productos"
-              name="Plantilla Reporte Final Día"
-              parent="pasteleria_desechos.menu_pasteleria_root"
+              name="Plantilla Reporte Final del Día"
+              parent="pasteleria_desechos.menu_pasteleria_configuracion"
               action="action_pasteleria_report_product_map"
-              sequence="30"/>
-    
+              sequence="10"
+              groups="pasteleria_desechos.group_pasteleria_gerente,pasteleria_desechos.group_pasteleria_admin"/>
 </odoo>
