@@ -24,7 +24,7 @@
                 <header>
                     <button name="action_regenerate_report" type="object" string="Regenerar" class="btn-primary"/>
                     <button name="action_download_excel" type="object" string="Descargar Excel"/>
-                    <button name="action_download_pdf" type="object" string="Descargar PDF" invisible="1"/>
+                    <button name="action_download_pdf" type="object" string="Descargar PDF"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,generated,error"/>
                 </header>
 
@@ -51,7 +51,7 @@
                     </group>
 
                     <notebook>
-                        <page string="Detalle resumen">
+                        <page string="Detalle operativo">
                             <field name="line_ids" nolabel="1">
                                 <list create="false"
                                       delete="false"
@@ -66,24 +66,34 @@
                                     <field name="exist_e" string="Exist. E"/>
                                     <field name="exist_pq" string="Exist. Pq"/>
                                     <field name="exist_gr" string="Exist. Gr"/>
-                                    <field name="exist_p" string="Exist. Otras"/>
+                                    <field name="exist_p" string="Exist. P"/>
 
-                                    <field name="income_e" string="Ing. E" optional="hide"/>
-                                    <field name="income_pq" string="Ing. Pq" optional="hide"/>
-                                    <field name="income_gr" string="Ing. Gr" optional="hide"/>
-                                    <field name="income_p" string="Ing. Otras" optional="hide"/>
+                                    <field name="income_e" string="Ing. E"/>
+                                    <field name="income_pq" string="Ing. Pq"/>
+                                    <field name="income_gr" string="Ing. Gr"/>
+                                    <field name="income_p" string="Ing. P"/>
+
+                                    <field name="expense_e" string="Egr. E"/>
+                                    <field name="expense_pq" string="Egr. Pq"/>
+                                    <field name="expense_gr" string="Egr. Gr"/>
+                                    <field name="expense_p" string="Egr. P"/>
+
+                                    <field name="waste_e" string="Des. E"/>
+                                    <field name="waste_pq" string="Des. Pq"/>
+                                    <field name="waste_gr" string="Des. Gr"/>
+                                    <field name="waste_p" string="Des. P"/>
 
                                     <field name="sales_e" string="Venta E"/>
                                     <field name="sales_pq" string="Venta Pq"/>
                                     <field name="sales_gr" string="Venta Gr"/>
-                                    <field name="sales_p" string="Venta Otras"/>
+                                    <field name="sales_p" string="Venta P"/>
 
                                     <field name="sales_amount_q" string="VTA-Q" widget="monetary" options="{'currency_field': 'currency_id'}"/>
 
                                     <field name="final_e" string="Saldo E"/>
                                     <field name="final_pq" string="Saldo Pq"/>
                                     <field name="final_gr" string="Saldo Gr"/>
-                                    <field name="final_p" string="Saldo Otras"/>
+                                    <field name="final_p" string="Saldo P"/>
                                 </list>
                             </field>
                         </page>

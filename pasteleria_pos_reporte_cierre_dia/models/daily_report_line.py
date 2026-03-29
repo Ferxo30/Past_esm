@@ -40,6 +40,16 @@ class PasteleriaPosDailyReportLine(models.Model):
     income_gr = fields.Float(string="Ing. Gr")
     income_p = fields.Float(string="Ing. P")
 
+    expense_e = fields.Float(string="Egr. E")
+    expense_pq = fields.Float(string="Egr. Pq")
+    expense_gr = fields.Float(string="Egr. Gr")
+    expense_p = fields.Float(string="Egr. P")
+
+    waste_e = fields.Float(string="Des. E")
+    waste_pq = fields.Float(string="Des. Pq")
+    waste_gr = fields.Float(string="Des. Gr")
+    waste_p = fields.Float(string="Des. P")
+
     sales_e = fields.Float(string="Venta E")
     sales_pq = fields.Float(string="Venta Pq")
     sales_gr = fields.Float(string="Venta Gr")

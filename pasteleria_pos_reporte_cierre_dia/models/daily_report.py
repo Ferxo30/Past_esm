@@ -42,7 +42,6 @@ class PasteleriaPosDailyReport(models.Model):
     pdf_filename = fields.Char(string="Nombre PDF")
     summary_text = fields.Text(string="Resumen")
 
-    # Guarda la estructura ya calculada por categoría/familia/variante
     report_payload = fields.Text(string="Payload reporte")
 
     _sql_constraints = [(
@@ -138,7 +137,6 @@ class PasteleriaPosDailyReport(models.Model):
         total_amount_q = payload["total_amount_q"]
         summary_lines = [f"{cat['category_name']}: Q{cat['category_total']:,.2f}" for cat in payload["categories"]]
 
-        # Generamos líneas resumen para la vista Odoo
         line_commands = []
         sequence = 10
 
@@ -152,7 +150,6 @@ class PasteleriaPosDailyReport(models.Model):
             sequence += 10
 
             for fam in cat["families"]:
-                # resumen Odoo: pq y gr aparte; lo demás agrupado en P
                 summary = self._build_odoo_summary_from_family_payload(fam)
 
                 line_commands.append((0, 0, {
@@ -217,13 +214,12 @@ class PasteleriaPosDailyReport(models.Model):
 
             ordered_variants = [code for code in self.VARIANT_META.keys() if code in category_used_variants]
 
-            category_payload = {
+            payload["categories"].append({
                 "category_name": category_name,
                 "variants": ordered_variants,
                 "families": families_payload,
                 "category_total": category_total,
-            }
-            payload["categories"].append(category_payload)
+            })
             payload["total_amount_q"] += category_total
 
         return payload
@@ -246,6 +242,8 @@ class PasteleriaPosDailyReport(models.Model):
 
             exist_qty = self._get_stock_qty_at_datetime(product, start_dt)
             income_qty = self._get_income_qty_for_session(product, start_dt, end_dt)
+            expense_qty = self._get_outgoing_qty_for_session(product, start_dt, end_dt)
+            waste_qty = self._get_waste_qty_for_session(product, start_dt, end_dt)
             sales_qty, sales_amount = self._get_sales_qty_amount_for_session(product)
             final_qty = self._get_stock_qty_at_datetime(product, end_dt)
 
@@ -253,12 +251,16 @@ class PasteleriaPosDailyReport(models.Model):
                 variants[variant] = {
                     "exist": 0.0,
                     "income": 0.0,
+                    "expense": 0.0,
+                    "waste": 0.0,
                     "sales": 0.0,
                     "final": 0.0,
                 }
 
             variants[variant]["exist"] += exist_qty
             variants[variant]["income"] += income_qty
+            variants[variant]["expense"] += expense_qty
+            variants[variant]["waste"] += waste_qty
             variants[variant]["sales"] += sales_qty
             variants[variant]["final"] += final_qty
 
@@ -278,40 +280,70 @@ class PasteleriaPosDailyReport(models.Model):
         def getv(code, key):
             return variants.get(code, {}).get(key, 0.0)
 
-        other_codes = ["p", "p5", "xg", "xg40", "pl40_45", "pl55_60", "pl100", "other"]
+        # Enteros / completos
+        whole_codes = ["pq", "gr", "xg", "xg40", "pl40_45", "pl55_60", "pl100"]
+        # Porciones / piezas / otros
+        portion_codes = ["p", "p5", "other"]
 
-        exist_other = sum(getv(code, "exist") for code in other_codes)
-        income_other = sum(getv(code, "income") for code in other_codes)
-        sales_other = sum(getv(code, "sales") for code in other_codes)
-        final_other = sum(getv(code, "final") for code in other_codes)
+        exist_e = sum(getv(code, "exist") for code in whole_codes)
+        income_e = sum(getv(code, "income") for code in whole_codes)
+        expense_e = sum(getv(code, "expense") for code in whole_codes)
+        waste_e = sum(getv(code, "waste") for code in whole_codes)
+        sales_e = sum(getv(code, "sales") for code in whole_codes)
+        final_e = sum(getv(code, "final") for code in whole_codes)
+
+        exist_p = sum(getv(code, "exist") for code in portion_codes)
+        income_p = sum(getv(code, "income") for code in portion_codes)
+        expense_p = sum(getv(code, "expense") for code in portion_codes)
+        waste_p = sum(getv(code, "waste") for code in portion_codes)
+        sales_p = sum(getv(code, "sales") for code in portion_codes)
+        final_p = sum(getv(code, "final") for code in portion_codes)
 
         exist_pq = getv("pq", "exist")
         exist_gr = getv("gr", "exist")
         income_pq = getv("pq", "income")
         income_gr = getv("gr", "income")
+        expense_pq = getv("pq", "expense")
+        expense_gr = getv("gr", "expense")
+        waste_pq = getv("pq", "waste")
+        waste_gr = getv("gr", "waste")
         sales_pq = getv("pq", "sales")
         sales_gr = getv("gr", "sales")
         final_pq = getv("pq", "final")
         final_gr = getv("gr", "final")
 
         return {
-            "exist_e": exist_pq + exist_gr,
+            "exist_e": exist_e,
             "exist_pq": exist_pq,
             "exist_gr": exist_gr,
-            "exist_p": exist_other,
-            "income_e": income_pq + income_gr,
+            "exist_p": exist_p,
+
+            "income_e": income_e,
             "income_pq": income_pq,
             "income_gr": income_gr,
-            "income_p": income_other,
-            "sales_e": sales_pq + sales_gr,
+            "income_p": income_p,
+
+            "expense_e": expense_e,
+            "expense_pq": expense_pq,
+            "expense_gr": expense_gr,
+            "expense_p": expense_p,
+
+            "waste_e": waste_e,
+            "waste_pq": waste_pq,
+            "waste_gr": waste_gr,
+            "waste_p": waste_p,
+
+            "sales_e": sales_e,
             "sales_pq": sales_pq,
             "sales_gr": sales_gr,
-            "sales_p": sales_other,
+            "sales_p": sales_p,
+
             "sales_amount_q": family_payload["sales_amount_q"],
-            "final_e": final_pq + final_gr,
+
+            "final_e": final_e,
             "final_pq": final_pq,
             "final_gr": final_gr,
-            "final_p": final_other,
+            "final_p": final_p,
         }
 
     def _build_summary_text(self, total_amount_q, summary_lines):
@@ -326,17 +358,22 @@ class PasteleriaPosDailyReport(models.Model):
     # CÁLCULOS
     # =========================================================
 
+    def _get_report_location(self):
+        self.ensure_one()
+        warehouse = self.session_id.config_id.picking_type_id.warehouse_id
+        return warehouse.lot_stock_id if warehouse and warehouse.lot_stock_id else False
+
     def _get_stock_qty_at_datetime(self, product, dt_value):
         if not product or not dt_value:
             return 0.0
 
-        warehouse = self.session_id.config_id.picking_type_id.warehouse_id
-        if not warehouse or not warehouse.lot_stock_id:
+        location = self._get_report_location()
+        if not location:
             return 0.0
 
         qty = product.with_context(
             to_date=dt_value,
-            location=warehouse.lot_stock_id.id,
+            location=location.id,
         ).qty_available
 
         return qty or 0.0
@@ -345,8 +382,7 @@ class PasteleriaPosDailyReport(models.Model):
         if not product:
             return 0.0
 
-        warehouse = self.session_id.config_id.picking_type_id.warehouse_id
-        location_dest = warehouse.lot_stock_id if warehouse else False
+        location_dest = self._get_report_location()
         if not location_dest:
             return 0.0
 
@@ -358,6 +394,49 @@ class PasteleriaPosDailyReport(models.Model):
             ("location_dest_id", "child_of", location_dest.id),
         ])
         return sum(moves.mapped("product_uom_qty"))
+
+    def _get_outgoing_qty_for_session(self, product, start_dt, end_dt):
+        if not product:
+            return 0.0
+
+        source_location = self._get_report_location()
+        if not source_location or "pasteleria.pos.transfer" not in self.env:
+            return 0.0
+
+        transfers = self.env["pasteleria.pos.transfer"].search([
+            ("state", "=", "confirmed"),
+            ("date", ">=", start_dt),
+            ("date", "<=", end_dt),
+            ("source_location_id", "child_of", source_location.id),
+        ])
+
+        qty = 0.0
+        for transfer in transfers:
+            for line in transfer.line_ids.filtered(lambda l: l.product_id.id == product.id):
+                qty += line.qty
+        return qty
+
+    def _get_waste_qty_for_session(self, product, start_dt, end_dt):
+        if not product or "pasteleria.desecho" not in self.env:
+            return 0.0
+
+        source_location = self._get_report_location()
+        if not source_location:
+            return 0.0
+
+        deseho_model = self.env["pasteleria.desecho"]
+        desechos = deseho_model.search([
+            ("state", "=", "confirmed"),
+            ("location_id", "child_of", source_location.id),
+        ])
+
+        qty = 0.0
+        for desecho in desechos:
+            effective_dt = desecho.approved_date or desecho.requested_date
+            if effective_dt and start_dt <= effective_dt <= end_dt:
+                for line in desecho.line_ids.filtered(lambda l: l.product_id.id == product.id):
+                    qty += line.qty
+        return qty
 
     def _get_sales_qty_amount_for_session(self, product):
         if not product:
@@ -420,7 +499,6 @@ class PasteleriaPosDailyReport(models.Model):
             for category in payload["categories"]:
                 variants = category["variants"]
 
-                # Título de categoría
                 sheet.merge_range(row, 0, row, max(1, 1 + len(variants) * 4), category["category_name"], fmt_category)
                 row += 1
 
@@ -459,7 +537,6 @@ class PasteleriaPosDailyReport(models.Model):
                     sheet.write(row, col, family["sales_amount_q"], fmt_cell)
                     row += 1
 
-                # subtotal categoría
                 sheet.write(row, 0, f"Subtotal {category['category_name']}", fmt_subtotal)
                 for c in range(1, len(headers) - 1):
                     sheet.write(row, c, "", fmt_subtotal)
