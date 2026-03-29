@@ -74,15 +74,7 @@ class PasteleriaPosDailyReport(models.Model):
             try:
                 report._generate_report_data()
                 report._generate_excel_file()
-
-                pdf_error = False
-                try:
-                    report._generate_pdf_file()
-                except Exception as e:
-                    pdf_error = str(e)
-
-                if pdf_error:
-                    report.summary_text = (report.summary_text or "") + _("\nPDF no generado: %s") % pdf_error
+                report._generate_pdf_file()
 
                 report.state = "generated"
 
@@ -100,6 +92,7 @@ class PasteleriaPosDailyReport(models.Model):
             "url": f"/web/content/{self._name}/{self.id}/excel_file/{self.excel_filename}?download=true",
             "target": "self",
         }
+    
 
     def action_download_pdf(self):
         self.ensure_one()
@@ -566,14 +559,21 @@ class PasteleriaPosDailyReport(models.Model):
     def _generate_pdf_file(self):
         self.ensure_one()
 
-        report_action = self.env.ref(
-            "pasteleria_pos_reporte_cierre_dia.action_report_daily_report_pdf",
-            raise_if_not_found=False,
-        )
-        if not report_action:
-            return False
+        report_action = self.env["ir.actions.report"].sudo().search([
+            ("model", "=", "pasteleria.pos.daily.report"),
+            ("report_type", "=", "qweb-pdf"),
+            ("report_name", "=", "pasteleria_pos_reporte_cierre_dia.report_daily_report_pdf"),
+            ("report_file", "=", "pasteleria_pos_reporte_cierre_dia.report_daily_report_pdf"),
+        ], order="id desc", limit=1)
 
-        pdf_content, _content_type = report_action._render_qweb_pdf(self.id)
+        if not report_action:
+            raise ValidationError(_("No se encontró una acción válida del reporte PDF."))
+
+        pdf_content, _content_type = report_action._render_qweb_pdf(
+            report_action.report_name,
+            res_ids=[self.id],
+        )
+
         filename = f"reporte_final_dia_{self.session_id.id}.pdf"
 
         self.write({

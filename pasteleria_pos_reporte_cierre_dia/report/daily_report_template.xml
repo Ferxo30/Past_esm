@@ -3,12 +3,26 @@
     <template id="report_daily_report_pdf">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="o">
-                <t t-call="web.external_layout">
-                    <div class="page" style="font-size: 9px;">
+                <t t-call="web.basic_layout">
+                    <div class="page" style="font-size:7px; margin:0; padding:0;">
 
-                        <h3 style="text-align:center; margin:0 0 6px 0;">PASTELERÍA ESMERALDA</h3>
+                        <table style="width:100%; border-collapse:collapse; margin-bottom:4px;">
+                            <tr>
+                                <td style="width:65px; vertical-align:top; text-align:left;">
+                                    <img t-if="o.company_id.logo"
+                                         t-att-src="image_data_uri(o.company_id.logo)"
+                                         style="max-width:50px; max-height:50px;"/>
+                                </td>
+                                <td style="text-align:center; vertical-align:middle;">
+                                    <div style="font-size:16px; font-weight:bold; margin-top:2px;">
+                                        PASTELERÍA ESMERALDA
+                                    </div>
+                                </td>
+                                <td style="width:65px;"></td>
+                            </tr>
+                        </table>
 
-                        <table style="width:100%; border-collapse:collapse; margin-bottom:6px;">
+                        <table style="width:100%; border-collapse:collapse; margin-bottom:4px; font-size:7px;" border="1">
                             <tr>
                                 <td style="padding:2px;"><strong>Reporte:</strong> <span t-field="o.name"/></td>
                                 <td style="padding:2px;"><strong>Sesión:</strong> <span t-field="o.session_id"/></td>
@@ -23,48 +37,42 @@
                             </tr>
                         </table>
 
-                        <table style="width:100%; border-collapse:collapse;" border="1">
+                        <table style="width:100%; border-collapse:collapse; font-size:6.5px; table-layout:fixed;" border="1">
                             <thead>
                                 <tr style="background:#eeeeee;">
-                                    <th rowspan="2" style="padding:2px;">Descripción</th>
+                                    <th rowspan="2" style="padding:2px; width:120px;">Descripción</th>
 
-                                    <th colspan="4" style="padding:2px;">Existencia</th>
-                                    <th colspan="4" style="padding:2px;">Ingresos</th>
-                                    <th colspan="4" style="padding:2px;">Egresos</th>
-                                    <th colspan="4" style="padding:2px;">Desechos</th>
-                                    <th colspan="4" style="padding:2px;">Ventas del día</th>
+                                    <th colspan="3" style="padding:2px;">Existencia</th>
+                                    <th colspan="3" style="padding:2px;">Ingresos</th>
+                                    <th colspan="3" style="padding:2px;">Egresos</th>
+                                    <th colspan="3" style="padding:2px;">Desechos</th>
+                                    <th colspan="3" style="padding:2px;">Ventas del día</th>
 
-                                    <th rowspan="2" style="padding:2px;">VTA-Q</th>
+                                    <th rowspan="2" style="padding:2px; width:48px;">VTA-Q</th>
 
-                                    <th colspan="4" style="padding:2px;">Saldo final</th>
+                                    <th colspan="3" style="padding:2px;">Saldo final</th>
                                 </tr>
                                 <tr style="background:#eeeeee;">
-                                    <th style="padding:2px;">E</th>
                                     <th style="padding:2px;">Pq</th>
                                     <th style="padding:2px;">Gr</th>
                                     <th style="padding:2px;">P</th>
 
-                                    <th style="padding:2px;">E</th>
                                     <th style="padding:2px;">Pq</th>
                                     <th style="padding:2px;">Gr</th>
                                     <th style="padding:2px;">P</th>
 
-                                    <th style="padding:2px;">E</th>
                                     <th style="padding:2px;">Pq</th>
                                     <th style="padding:2px;">Gr</th>
                                     <th style="padding:2px;">P</th>
 
-                                    <th style="padding:2px;">E</th>
                                     <th style="padding:2px;">Pq</th>
                                     <th style="padding:2px;">Gr</th>
                                     <th style="padding:2px;">P</th>
 
-                                    <th style="padding:2px;">E</th>
                                     <th style="padding:2px;">Pq</th>
                                     <th style="padding:2px;">Gr</th>
                                     <th style="padding:2px;">P</th>
 
-                                    <th style="padding:2px;">E</th>
                                     <th style="padding:2px;">Pq</th>
                                     <th style="padding:2px;">Gr</th>
                                     <th style="padding:2px;">P</th>
@@ -77,36 +85,34 @@
                                         else 'background-color:#fff2cc;font-weight:bold;' if line.line_type == 'subtotal'
                                         else ''
                                     ">
-                                        <td style="padding:2px;"><span t-field="line.display_name"/></td>
+                                        <td style="padding:2px; white-space:normal; word-wrap:break-word;">
+                                            <span t-field="line.display_name"/>
+                                        </td>
 
-                                        <td style="padding:2px; text-align:center;"><span t-field="line.exist_e"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.exist_pq"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.exist_gr"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.exist_p"/></td>
 
-                                        <td style="padding:2px; text-align:center;"><span t-field="line.income_e"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.income_pq"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.income_gr"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.income_p"/></td>
 
-                                        <td style="padding:2px; text-align:center;"><span t-field="line.expense_e"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.expense_pq"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.expense_gr"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.expense_p"/></td>
 
-                                        <td style="padding:2px; text-align:center;"><span t-field="line.waste_e"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.waste_pq"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.waste_gr"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.waste_p"/></td>
 
-                                        <td style="padding:2px; text-align:center;"><span t-field="line.sales_e"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.sales_pq"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.sales_gr"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.sales_p"/></td>
 
-                                        <td style="padding:2px; text-align:center;"><span t-field="line.sales_amount_q"/></td>
+                                        <td style="padding:2px; text-align:center; white-space:nowrap;">
+                                            <span t-field="line.sales_amount_q"/>
+                                        </td>
 
-                                        <td style="padding:2px; text-align:center;"><span t-field="line.final_e"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.final_pq"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.final_gr"/></td>
                                         <td style="padding:2px; text-align:center;"><span t-field="line.final_p"/></td>
@@ -115,11 +121,8 @@
                             </tbody>
                         </table>
 
-                        <div style="margin-top:8px;">
-                            <strong>Resumen:</strong>
-                            <div style="white-space: pre-wrap;">
-                                <span t-field="o.summary_text"/>
-                            </div>
+                        <div style="margin-top:4px; text-align:right; font-size:8px; font-weight:bold;">
+                            TOTAL GENERAL: <span t-field="o.total_amount_q"/>
                         </div>
 
                     </div>

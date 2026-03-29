@@ -4,13 +4,13 @@
         <field name="name">Pastelería Reporte Final Día</field>
         <field name="default" eval="False"/>
         <field name="format">A4</field>
-        <field name="orientation">Landscape</field>
-        <field name="margin_top">5</field>
-        <field name="margin_bottom">5</field>
-        <field name="margin_left">4</field>
-        <field name="margin_right">4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">3</field>
+        <field name="margin_bottom">3</field>
+        <field name="margin_left">3</field>
+        <field name="margin_right">3</field>
         <field name="header_line" eval="False"/>
-        <field name="header_spacing">3</field>
+        <field name="header_spacing">1</field>
         <field name="dpi">90</field>
     </record>
 
