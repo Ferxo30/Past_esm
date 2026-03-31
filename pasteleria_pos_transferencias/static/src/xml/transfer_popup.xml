@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates id="template" xml:space="preserve">
     <t t-name="pasteleria_pos_transferencias.TransferPopup">
-        <Dialog title="'Transferencias entre sucursales'" size="'lg'">
+        <Dialog title="'Transferencias entre sucursales'" size="'xl'">
             <div class="o_pos_transfer_popup">
                 <div class="o_pos_transfer_header">
                     <div>
@@ -23,15 +23,36 @@
                         </select>
                     </div>
 
-                    <div class="o_pos_transfer_row o_pos_transfer_addline">
+                    <div class="o_pos_transfer_addline">
                         <div>
                             <label>Producto</label>
-                            <select t-model="state.selected_product_id" class="form-select">
+                            <select t-model="state.selected_product_id"
+                                    class="form-select"
+                                    t-on-change="onProductChange">
                                 <option value="">Seleccionar producto...</option>
                                 <t t-foreach="props.products" t-as="prod" t-key="prod.id">
                                     <option t-att-value="prod.id">
-                                        <t t-esc="prod.name"/> -
-                                        Disponible: <t t-esc="prod.qty_available"/>
+                                        <t t-esc="prod.name"/>
+                                    </option>
+                                </t>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label>Lote</label>
+                            <select t-model="state.selected_lot_id" class="form-select">
+                                <option value="">Seleccionar lote...</option>
+                                <t t-foreach="selectableLots" t-as="lot" t-key="lot.lot_id">
+                                    <option t-att-value="lot.lot_id"
+                                            t-att-disabled="!lot.selectable ? true : undefined">
+                                        <t t-esc="lot.lot_name"/>
+                                        -
+                                        <t t-esc="getStateLabel(lot.state)"/>
+                                        -
+                                        Disp: <t t-esc="lot.qty_available"/>
+                                        <t t-if="lot.expiration_date">
+                                            - Vence: <t t-esc="lot.expiration_date"/>
+                                        </t>
                                     </option>
                                 </t>
                             </select>
@@ -48,6 +69,40 @@
                             </button>
                         </div>
                     </div>
+
+                    <t t-if="state.loadingLots">
+                        <div class="o_transfer_loading_hint">
+                            Cargando lotes...
+                        </div>
+                    </t>
+
+                    <t t-if="state.lots.length">
+                        <div class="o_transfer_lots_preview">
+                            <div class="o_transfer_lots_preview_title">Lotes disponibles</div>
+                            <div class="o_transfer_lots_preview_list">
+                                <t t-foreach="state.lots" t-as="lot" t-key="lot.lot_id">
+                                    <div class="o_transfer_lot_card" t-att-class="!lot.selectable ? 'o_transfer_lot_card_disabled' : ''">
+                                        <div class="o_transfer_lot_card_top">
+                                            <strong t-esc="lot.lot_name"/>
+                                            <span t-att-class="getStateClass(lot.state)">
+                                                <t t-esc="getStateLabel(lot.state)"/>
+                                            </span>
+                                        </div>
+                                        <div>Disponible: <t t-esc="lot.qty_available"/></div>
+                                        <div>
+                                            Vence:
+                                            <t t-esc="lot.expiration_date or '—'"/>
+                                        </div>
+                                        <t t-if="!lot.selectable">
+                                            <div class="o_transfer_lot_blocked_hint">
+                                                No seleccionable
+                                            </div>
+                                        </t>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+                    </t>
                 </div>
 
                 <div class="o_pos_transfer_lines">
@@ -55,6 +110,9 @@
                         <thead>
                             <tr>
                                 <th>Producto</th>
+                                <th>Lote</th>
+                                <th>Semáforo</th>
+                                <th>Vence</th>
                                 <th>Disponible</th>
                                 <th>Cantidad</th>
                                 <th>UoM</th>
@@ -64,14 +122,21 @@
                         <tbody>
                             <t t-if="!state.lines.length">
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted">
+                                    <td colspan="8" class="text-center text-muted">
                                         No hay líneas agregadas.
                                     </td>
                                 </tr>
                             </t>
-                            <t t-foreach="state.lines" t-as="line" t-key="line.product_id + '_' + line.qty + '_' + line.product_name">
+                            <t t-foreach="state.lines" t-as="line" t-key="line.product_id + '_' + line.lot_id">
                                 <tr>
                                     <td><t t-esc="line.product_name"/></td>
+                                    <td><t t-esc="line.lot_name"/></td>
+                                    <td>
+                                        <span t-att-class="getStateClass(line.state)">
+                                            <t t-esc="getStateLabel(line.state)"/>
+                                        </span>
+                                    </td>
+                                    <td><t t-esc="line.expiration_date or '—'"/></td>
                                     <td><t t-esc="line.qty_available"/></td>
                                     <td><t t-esc="line.qty"/></td>
                                     <td><t t-esc="line.uom_name"/></td>

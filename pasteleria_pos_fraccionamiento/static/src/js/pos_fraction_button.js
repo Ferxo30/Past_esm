@@ -30,6 +30,32 @@ function getProductFromLine(line) {
     return null;
 }
 
+function getProductTemplateId(product) {
+    const value = product?.product_tmpl_id;
+    if (!value) return false;
+    if (typeof value === "number") return value;
+    if (Array.isArray(value) && value.length) return value[0];
+    if (typeof value === "object" && value.id) return value.id;
+    return false;
+}
+
+function resolveSliceProductId(product, pos) {
+    const direct = product?.cake_slice_product_id;
+    if (typeof direct === "number") return direct;
+    if (Array.isArray(direct) && direct.length) return direct[0];
+    if (typeof direct === "object" && direct?.id) return direct.id;
+
+    const templateId = getProductTemplateId(product);
+    if (!templateId) return false;
+
+    const records = pos?.models?.["product.product"]?.getAll?.() || [];
+    const found = records.find((p) => {
+        const tmpl = getProductTemplateId(p);
+        return tmpl === templateId && !!p?.is_cake_slice;
+    });
+    return found?.id || false;
+}
+
 function findPayButtonElement() {
     const nodes = Array.from(document.querySelectorAll("button,div,span,a"));
     const byText = nodes.find((n) => (n.textContent || "").trim() === "Pago");
@@ -59,8 +85,6 @@ function ensureFractionButton(ctx) {
     btn.style.cursor = "pointer";
 
     btn.addEventListener("click", () => ctx.onClickCakeFraction());
-
-    // Lo insertamos antes de Pago, sin tocar Desecho
     payEl.parentElement.insertBefore(btn, payEl);
     return true;
 }
@@ -104,7 +128,8 @@ patch(ProductScreen.prototype, {
             return;
         }
 
-        if (!product.cake_slice_product_id) {
+        const sliceProductId = resolveSliceProductId(product, this.pos);
+        if (!sliceProductId) {
             window.alert("La variante seleccionada no tiene producto porción configurado.");
             return;
         }
@@ -118,6 +143,7 @@ patch(ProductScreen.prototype, {
 
         dialog.add(CakeFractionPopup, {
             product,
+            orderline: line,
         });
     },
 });

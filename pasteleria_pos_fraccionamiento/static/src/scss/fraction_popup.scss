@@ -1,3 +1,66 @@
 .o_fraction_popup {
-    min-width: 360px;
+    min-width: 760px;
+}
+
+.o_fraction_lots_box {
+    border: 1px solid #d9d9d9;
+    border-radius: 10px;
+    padding: 14px;
+    background: #fafafa;
+}
+
+.o_fraction_lots_grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.o_fraction_lot_card {
+    width: 100%;
+    text-align: left;
+    border: 1px solid #d0d0d0;
+    border-radius: 12px;
+    background: white;
+    padding: 12px;
+    min-height: 110px;
+}
+
+.o_fraction_lot_card_selected {
+    border-color: #875A7B;
+    box-shadow: 0 0 0 2px rgba(135, 90, 123, 0.12);
+}
+
+.o_fraction_lot_card:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.o_fraction_lot_card_head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.o_fraction_lot_badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    color: #fff;
+    font-weight: 600;
+}
+
+.o_fraction_lot_badge_green { background: #2ea043; }
+.o_fraction_lot_badge_yellow { background: #d4a72c; }
+.o_fraction_lot_badge_red { background: #d1242f; }
+.o_fraction_lot_badge_black { background: #666; }
+
+.o_fraction_lot_warning {
+    margin-top: 8px;
+    color: #c4514a;
+    font-size: 13px;
 }

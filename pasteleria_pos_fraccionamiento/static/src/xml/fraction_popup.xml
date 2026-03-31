@@ -1,44 +1,83 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-
     <t t-name="pasteleria_pos_fraccionamiento.CakeFractionPopup">
-        <Dialog title="'Fraccionar pastel'">
-            <div class="p-3">
-                <div class="mb-2">
-                    <strong>Pastel completo:</strong>
-                    <div><t t-esc="props.product.display_name"/></div>
+        <Dialog title="'Fraccionar pastel por lote'">
+            <div class="p-3 o_fraction_popup">
+                <div class="row g-2">
+                    <div class="col-12">
+                        <label class="form-label">Producto</label>
+                        <input class="form-control" type="text" t-att-value="props.product.display_name" readonly="readonly"/>
+                    </div>
+
+                    <div class="col-12 col-lg-7">
+                        <label class="form-label">Lote</label>
+                        <select class="form-select" t-model="state.source_lot_id" t-att-disabled="state.loading_lots ? true : undefined">
+                            <option value="">Seleccionar lote...</option>
+                            <t t-foreach="state.available_lots" t-as="lot" t-key="lot.lot_id">
+                                <option t-att-value="lot.lot_id_text" t-att-disabled="lot.selectable ? undefined : true">
+                                    <t t-esc="lot.label"/>
+                                </option>
+                            </t>
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-lg-5">
+                        <label class="form-label">Porciones generadas</label>
+                        <input class="form-control" type="number" min="1" step="1" t-model="state.qty_slices_created"/>
+                    </div>
                 </div>
 
-                <div class="mb-2">
-                    <strong>Producto porción:</strong>
-                    <div><t t-esc="state.slice_product_name"/></div>
+                <div class="mt-3">
+                    <div class="o_fraction_lots_box">
+                        <div class="fw-bold mb-2">Lotes disponibles</div>
+                        <div class="o_fraction_lots_grid">
+                            <t t-if="!state.available_lots.length and !state.loading_lots">
+                                <div class="text-muted">No hay lotes disponibles para este producto.</div>
+                            </t>
+                            <t t-if="state.loading_lots">
+                                <div class="text-muted">Cargando lotes...</div>
+                            </t>
+                            <t t-foreach="state.available_lots" t-as="lot" t-key="lot.lot_id">
+                                <button type="button"
+                                        class="o_fraction_lot_card"
+                                        t-att-class="state.source_lot_id === lot.lot_id_text ? ' o_fraction_lot_card_selected' : ''"
+                                        t-att-disabled="lot.selectable ? undefined : true"
+                                        t-on-click="() => selectLot(lot.lot_id_text)">
+                                    <div class="o_fraction_lot_card_head">
+                                        <strong><t t-esc="lot.lot_name"/></strong>
+                                        <span t-att-class="getLotCssClass(lot.state)"><t t-esc="getLotStateLabel(lot.state)"/></span>
+                                    </div>
+                                    <div>Disponible: <t t-esc="lot.qty_available"/></div>
+                                    <div t-if="lot.expiration_date">Vence: <t t-esc="lot.expiration_date"/></div>
+                                    <div class="o_fraction_lot_warning" t-if="!lot.selectable">No seleccionable</div>
+                                </button>
+                            </t>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="mb-2">
-                    <label class="form-label">Cantidad de enteros</label>
-                    <input class="form-control" type="number" min="1" step="1" t-model="state.qty_full"/>
-                </div>
-
-                <div class="mb-2">
-                    <label class="form-label">Porciones generadas</label>
-                    <input class="form-control" type="number" min="1" step="1" t-model="state.qty_slices_created"/>
-                </div>
-
-                <div class="mb-2">
-                    <label class="form-label">Motivo</label>
-                    <select class="form-select" t-model="state.reason_id">
-                        <option value="">Seleccionar motivo</option>
-                        <t t-foreach="state.reasons" t-as="reason" t-key="reason.id">
-                            <option t-att-value="reason.id">
-                                <t t-esc="reason.name"/>
-                            </option>
-                        </t>
-                    </select>
-                </div>
-
-                <div class="mb-2">
-                    <label class="form-label">Observaciones</label>
-                    <textarea class="form-control" t-model="state.note"/>
+                <div class="row g-2 mt-2">
+                    <div class="col-12 col-lg-6">
+                        <label class="form-label">Producto porción</label>
+                        <input class="form-control" type="text" t-att-value="state.slice_product_name" readonly="readonly"/>
+                    </div>
+                    <div class="col-12 col-lg-3">
+                        <label class="form-label">Cantidad de enteros</label>
+                        <input class="form-control" type="number" min="1" step="1" t-model="state.qty_full"/>
+                    </div>
+                    <div class="col-12 col-lg-3">
+                        <label class="form-label">Motivo</label>
+                        <select class="form-select" t-model="state.reason_id">
+                            <option value="">Seleccionar motivo</option>
+                            <t t-foreach="state.reasons" t-as="reason" t-key="reason.id">
+                                <option t-att-value="reason.id"><t t-esc="reason.name"/></option>
+                            </t>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Observaciones</label>
+                        <textarea class="form-control" t-model="state.note"/>
+                    </div>
                 </div>
 
                 <div class="d-flex justify-content-end gap-2 mt-3">
@@ -48,5 +87,4 @@
             </div>
         </Dialog>
     </t>
-
 </templates>

@@ -12,6 +12,8 @@
                 <field name="location_id"/>
                 <field name="full_product_id"/>
                 <field name="slice_product_id"/>
+                <field name="source_lot_id"/>
+                <field name="result_lot_id"/>
                 <field name="qty_full"/>
                 <field name="qty_slices_created"/>
                 <field name="reason_id"/>
@@ -77,12 +79,14 @@
 
                         <group string="Fraccionamiento">
                             <field name="full_product_id"/>
+                            <field name="source_lot_id" options="{'no_create': True}"/>
                             <field name="full_available_qty" readonly="1"/>
                             <field name="slice_product_id"
                                    readonly="1"
                                    force_save="1"
                                    options="{'no_open': True, 'no_create': True}"/>
                             <field name="qty_full"/>
+                            <field name="result_lot_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                             <field name="qty_slices_created"/>
                             <field name="reason_id"/>
                             <field name="note"/>

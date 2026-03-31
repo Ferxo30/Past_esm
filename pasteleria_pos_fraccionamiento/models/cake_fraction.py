@@ -56,6 +56,22 @@ class PasteleriaCakeFraction(models.Model):
         tracking=True,
     )
 
+    source_lot_id = fields.Many2one(
+        "stock.lot",
+        string="Lote origen",
+        tracking=True,
+        domain="[('product_id', '=', full_product_id)]",
+        help="Lote específico del pastel completo que se consumirá en el fraccionamiento.",
+    )
+    result_lot_id = fields.Many2one(
+        "stock.lot",
+        string="Lote porción",
+        copy=False,
+        tracking=True,
+        domain="[('product_id', '=', slice_product_id)]",
+        help="Lote resultante usado para las porciones generadas.",
+    )
+
     qty_full = fields.Float(string="Cantidad de enteros", default=1.0, required=True, tracking=True)
     qty_slices_created = fields.Float(string="Porciones generadas", required=True, tracking=True)
 
@@ -74,7 +90,6 @@ class PasteleriaCakeFraction(models.Model):
 
     full_available_qty = fields.Float(string="Disponibilidad entero", compute="_compute_full_available_qty")
     can_reverse = fields.Boolean(compute="_compute_can_reverse")
-
     move_count = fields.Integer(string="Movimientos", compute="_compute_move_count")
 
     @api.depends("consumption_move_id", "production_move_id")
@@ -84,13 +99,6 @@ class PasteleriaCakeFraction(models.Model):
 
     @api.model
     def _get_fraction_bridge_location(self):
-        """
-        Busca una ubicación virtual específica para fraccionamiento.
-        Prioridad:
-        1) nombre exacto 'Fraccionamiento pasteles (virtual)'
-        2) locations inventory de la compañía
-        3) cualquier inventory global
-        """
         Location = self.env["stock.location"].sudo()
         company = self.env.company
 
@@ -109,12 +117,10 @@ class PasteleriaCakeFraction(models.Model):
         if location:
             return location
 
-        location = Location.search([
+        return Location.search([
             ("usage", "=", "inventory"),
             ("company_id", "=", False),
         ], order="id asc", limit=1)
-
-        return location
 
     @api.model
     def _get_default_slice_product(self, full_product):
@@ -150,7 +156,7 @@ class PasteleriaCakeFraction(models.Model):
                     vals["slice_product_id"] = slice_product.id
 
             if not vals.get("virtual_fraction_location_id"):
-                bridge_location = self._get_fractionBridgeOrFallback()
+                bridge_location = self.env["pasteleria.cake.fraction"]._get_fraction_bridge_location()
                 if bridge_location:
                     vals["virtual_fraction_location_id"] = bridge_location.id
 
@@ -164,17 +170,13 @@ class PasteleriaCakeFraction(models.Model):
                 vals["slice_product_id"] = slice_product.id
 
         if "virtual_fraction_location_id" not in vals or not vals.get("virtual_fraction_location_id"):
-            bridge_location = self._get_fractionBridgeOrFallback()
+            bridge_location = self.env["pasteleria.cake.fraction"]._get_fraction_bridge_location()
             if bridge_location:
                 vals["virtual_fraction_location_id"] = bridge_location.id
 
         return super().write(vals)
 
-    def _get_fractionBridgeOrFallback(self):
-        self.ensure_one() if self else None
-        return self.env["pasteleria.cake.fraction"]._get_fraction_bridge_location()
-
-    @api.depends("full_product_id", "location_id")
+    @api.depends("full_product_id", "location_id", "source_lot_id")
     def _compute_full_available_qty(self):
         Quant = self.env["stock.quant"].sudo()
         for rec in self:
@@ -183,6 +185,7 @@ class PasteleriaCakeFraction(models.Model):
                 rec.full_available_qty = Quant._get_available_quantity(
                     rec.full_product_id,
                     rec.location_id,
+                    lot_id=rec.source_lot_id,
                     allow_negative=False,
                 )
 
@@ -218,8 +221,47 @@ class PasteleriaCakeFraction(models.Model):
 
     @api.onchange("full_product_id")
     def _onchange_full_product_id(self):
+        Lot = self.env["stock.lot"].sudo()
+        Quant = self.env["stock.quant"].sudo()
         for rec in self:
             rec.slice_product_id = rec._get_default_slice_product(rec.full_product_id)
+            rec.source_lot_id = False
+            rec.result_lot_id = False
+
+            if rec.full_product_id and rec.location_id and rec.full_product_id.tracking != "none":
+                grouped = Quant.read_group([
+                    ("product_id", "=", rec.full_product_id.id),
+                    ("location_id", "child_of", rec.location_id.id),
+                    ("lot_id", "!=", False),
+                    ("quantity", ">", 0),
+                ], ["lot_id", "quantity:sum", "reserved_quantity:sum"], ["lot_id"], lazy=False)
+
+                preferred_lot = False
+                for row in grouped:
+                    qty = (row.get("quantity") or 0.0) - (row.get("reserved_quantity") or 0.0)
+                    if qty > 0 and row.get("lot_id"):
+                        preferred_lot = Lot.browse(row["lot_id"][0])
+                        break
+
+                rec.source_lot_id = preferred_lot
+                if preferred_lot and rec.slice_product_id and rec.slice_product_id.tracking != "none":
+                    rec.result_lot_id = Lot.search([
+                        ("product_id", "=", rec.slice_product_id.id),
+                        ("name", "=", "%s - PORCION" % preferred_lot.name),
+                        ("company_id", "in", [False, rec.company_id.id]),
+                    ], limit=1)
+
+    @api.onchange("source_lot_id", "slice_product_id")
+    def _onchange_source_lot_id(self):
+        Lot = self.env["stock.lot"].sudo()
+        for rec in self:
+            rec.result_lot_id = False
+            if rec.source_lot_id and rec.slice_product_id and rec.slice_product_id.tracking != "none":
+                rec.result_lot_id = Lot.search([
+                    ("product_id", "=", rec.slice_product_id.id),
+                    ("name", "=", "%s - PORCION" % rec.source_lot_id.name),
+                    ("company_id", "in", [False, rec.company_id.id]),
+                ], limit=1)
 
     @api.constrains("full_product_id", "slice_product_id")
     def _check_same_template(self):
@@ -246,6 +288,14 @@ class PasteleriaCakeFraction(models.Model):
                 raise ValidationError(_("El producto origen debe estar marcado como fraccionable."))
             if rec.slice_product_id and not rec.slice_product_id.is_cake_slice:
                 raise ValidationError(_("El producto destino debe estar marcado como porción."))
+
+    @api.constrains("full_product_id", "source_lot_id", "slice_product_id", "result_lot_id")
+    def _check_lot_product_match(self):
+        for rec in self:
+            if rec.source_lot_id and rec.full_product_id and rec.source_lot_id.product_id != rec.full_product_id:
+                raise ValidationError(_("El lote origen no corresponde al pastel completo seleccionado."))
+            if rec.result_lot_id and rec.slice_product_id and rec.result_lot_id.product_id != rec.slice_product_id:
+                raise ValidationError(_("El lote porción no corresponde al producto porción seleccionado."))
 
     @api.constrains("warehouse_id", "location_id")
     def _check_location_belongs_to_warehouse(self):
@@ -277,9 +327,13 @@ class PasteleriaCakeFraction(models.Model):
         if self.qty_slices_created <= 0:
             raise UserError(_("La cantidad de porciones generadas debe ser mayor a cero."))
 
+        if self.full_product_id.tracking != "none" and not self.source_lot_id:
+            raise UserError(_("Debe seleccionar el lote del pastel completo."))
+
         available = self.env["stock.quant"].sudo()._get_available_quantity(
             self.full_product_id,
             self.location_id,
+            lot_id=self.source_lot_id,
             allow_negative=False,
         )
         if available < self.qty_full:
@@ -291,7 +345,7 @@ class PasteleriaCakeFraction(models.Model):
         if self.virtual_fraction_location_id.usage != "inventory":
             raise UserError(_("La ubicación puente debe ser de tipo Inventario/Ajuste."))
 
-    def _prepare_move_vals(self, product, quantity, location_id, location_dest_id, reference_name):
+    def _prepare_move_vals(self, product, quantity, location_id, location_dest_id, reference_name, lot_id=False):
         self.ensure_one()
         return {
             "name": reference_name,
@@ -303,6 +357,7 @@ class PasteleriaCakeFraction(models.Model):
             "location_dest_id": location_dest_id.id,
             "origin": self.name,
             "reference": self.name,
+            "_fraction_lot_id": lot_id.id if lot_id else False,
         }
 
     def _set_done_qty_on_move_line(self, move_line, qty):
@@ -325,33 +380,33 @@ class PasteleriaCakeFraction(models.Model):
         Move = self.env["stock.move"]
         MoveLine = self.env["stock.move.line"]
 
-        move = Move.create(vals)
+        move_create_vals = dict(vals)
+        lot_id = move_create_vals.pop("_fraction_lot_id", False)
+        move = Move.create(move_create_vals)
         move._action_confirm()
         move._action_assign()
 
         qty = vals["product_uom_qty"]
         move_line = move.move_line_ids[:1]
 
+        move_line_vals = {
+            "product_id": vals["product_id"],
+            "product_uom_id": vals["product_uom"],
+            "location_id": vals["location_id"],
+            "location_dest_id": vals["location_dest_id"],
+        }
+        if lot_id and "lot_id" in MoveLine._fields:
+            move_line_vals["lot_id"] = lot_id
+
         if move_line:
             move_line = move_line[0]
             extra_lines = move.move_line_ids - move_line
             if extra_lines:
                 extra_lines.unlink()
-
-            move_line.write({
-                "product_id": vals["product_id"],
-                "product_uom_id": vals["product_uom"],
-                "location_id": vals["location_id"],
-                "location_dest_id": vals["location_dest_id"],
-            })
+            move_line.write(move_line_vals)
         else:
-            move_line = MoveLine.create({
-                "move_id": move.id,
-                "product_id": vals["product_id"],
-                "product_uom_id": vals["product_uom"],
-                "location_id": vals["location_id"],
-                "location_dest_id": vals["location_dest_id"],
-            })
+            move_line_vals["move_id"] = move.id
+            move_line = MoveLine.create(move_line_vals)
 
         self._set_done_qty_on_move_line(move_line, qty)
 
@@ -377,6 +432,46 @@ class PasteleriaCakeFraction(models.Model):
 
         return move
 
+    def _build_result_lot_name(self):
+        self.ensure_one()
+        if not self.source_lot_id:
+            return False
+        return "%s - PORCION" % (self.source_lot_id.name or "")
+
+    def _prepare_result_lot_vals(self):
+        self.ensure_one()
+        vals = {
+            "name": self._build_result_lot_name(),
+            "product_id": self.slice_product_id.id,
+            "company_id": self.company_id.id,
+        }
+        for field_name in ["expiration_date", "life_date", "use_date", "removal_date", "alert_date"]:
+            if field_name in self.source_lot_id._fields and field_name in self.env["stock.lot"]._fields:
+                vals[field_name] = self.source_lot_id[field_name]
+        return vals
+
+    def _get_or_create_result_lot(self):
+        self.ensure_one()
+        if self.result_lot_id:
+            return self.result_lot_id
+
+        if self.slice_product_id.tracking == "none":
+            return False
+
+        if not self.source_lot_id:
+            raise UserError(_("Debe seleccionar el lote origen para generar el lote de porción."))
+
+        Lot = self.env["stock.lot"].sudo()
+        existing = Lot.search([
+            ("product_id", "=", self.slice_product_id.id),
+            ("name", "=", self._build_result_lot_name()),
+            ("company_id", "in", [False, self.company_id.id]),
+        ], limit=1)
+        if existing:
+            return existing
+
+        return Lot.create(self._prepare_result_lot_vals())
+
     def _success_notification(self, title, message):
         return {
             "type": "ir.actions.client",
@@ -399,6 +494,9 @@ class PasteleriaCakeFraction(models.Model):
 
             rec._check_before_confirm()
 
+            if rec.slice_product_id.tracking != "none":
+                rec.result_lot_id = rec._get_or_create_result_lot()
+
             bridge_location = rec.virtual_fraction_location_id
             if not bridge_location:
                 raise UserError(_("No se encontró una ubicación virtual para fraccionamiento."))
@@ -412,6 +510,7 @@ class PasteleriaCakeFraction(models.Model):
                 rec.location_id,
                 bridge_location,
                 _("Salida por fraccionamiento %s") % rec.name,
+                lot_id=rec.source_lot_id,
             )
 
             production_vals = rec._prepare_move_vals(
@@ -420,6 +519,7 @@ class PasteleriaCakeFraction(models.Model):
                 bridge_location,
                 rec.location_id,
                 _("Entrada por fraccionamiento %s") % rec.name,
+                lot_id=rec.result_lot_id,
             )
 
             rec.consumption_move_id = rec._create_done_move(consumption_vals).id
@@ -429,13 +529,17 @@ class PasteleriaCakeFraction(models.Model):
             rec.message_post(body=_(
                 "Fraccionamiento confirmado.<br/>"
                 "Pastel completo: <b>%s</b> (-%s)<br/>"
+                "Lote origen: <b>%s</b><br/>"
                 "Producto porción: <b>%s</b> (+%s)<br/>"
+                "Lote porción: <b>%s</b><br/>"
                 "Ubicación: <b>%s</b>"
             ) % (
                 rec.full_product_id.display_name,
                 rec.qty_full,
+                rec.source_lot_id.display_name if rec.source_lot_id else _("Sin lote"),
                 rec.slice_product_id.display_name,
                 rec.qty_slices_created,
+                rec.result_lot_id.display_name if rec.result_lot_id else _("Sin lote"),
                 rec.location_id.display_name,
             ))
 
@@ -483,6 +587,7 @@ class PasteleriaCakeFraction(models.Model):
             self.location_id,
             bridge_location,
             _("Salida por reversión %s") % self.name,
+            lot_id=self.result_lot_id,
         )
 
         full_in_vals = self._prepare_move_vals(
@@ -491,6 +596,7 @@ class PasteleriaCakeFraction(models.Model):
             bridge_location,
             self.location_id,
             _("Entrada por reversión %s") % self.name,
+            lot_id=self.source_lot_id,
         )
 
         self.consumption_move_id = self._create_done_move(slice_out_vals).id
@@ -523,6 +629,7 @@ class PasteleriaCakeFraction(models.Model):
             available_slice_qty = self.env["stock.quant"].sudo()._get_available_quantity(
                 rec.slice_product_id,
                 rec.location_id,
+                lot_id=rec.result_lot_id,
                 allow_negative=False,
             )
             if available_slice_qty < rec.qty_slices_created:
@@ -537,6 +644,8 @@ class PasteleriaCakeFraction(models.Model):
                 "virtual_fraction_location_id": rec.virtual_fraction_location_id.id if rec.virtual_fraction_location_id else False,
                 "full_product_id": rec.full_product_id.id,
                 "slice_product_id": rec.slice_product_id.id,
+                "source_lot_id": rec.source_lot_id.id,
+                "result_lot_id": rec.result_lot_id.id,
                 "qty_full": rec.qty_full,
                 "qty_slices_created": rec.qty_slices_created,
                 "reason_id": rec.reason_id.id,
@@ -609,6 +718,10 @@ class PasteleriaCakeFraction(models.Model):
         if not slice_product:
             raise UserError(_("La variante seleccionada no tiene porción configurada."))
 
+        source_lot_id = payload.get("source_lot_id")
+        if full_product.tracking != "none" and not source_lot_id:
+            raise UserError(_("Debe seleccionar el lote del pastel completo."))
+
         bridge_location = self._get_fraction_bridge_location()
         if not bridge_location:
             raise UserError(_(
@@ -632,6 +745,7 @@ class PasteleriaCakeFraction(models.Model):
             "qty_slices_created": payload.get("qty_slices_created", 0),
             "reason_id": payload.get("reason_id"),
             "note": payload.get("note"),
+            "source_lot_id": payload.get("source_lot_id"),
         })
         record.action_confirm()
 

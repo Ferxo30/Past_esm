@@ -2,8 +2,6 @@
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
-from urllib.parse import quote
-import json
 
 
 class PasteleriaPosTransfer(models.Model):
@@ -147,44 +145,6 @@ class PasteleriaPosTransfer(models.Model):
             new_vals_list.append(vals)
         return super().create(new_vals_list)
 
-    @api.model
-    def get_pos_transfer_backend_url(self, pos_config_id=False):
-        action = self.env.ref("pasteleria_pos_transferencias.action_pasteleria_pos_transfer", raise_if_not_found=False)
-        menu = self.env.ref("pasteleria_pos_transferencias.menu_pasteleria_pos_transfer", raise_if_not_found=False)
-
-        context = {}
-        if pos_config_id:
-            context["default_origin_pos_id"] = pos_config_id
-
-            pos_config = self.env["pos.config"].browse(pos_config_id)
-            if pos_config.transfer_source_location_id:
-                context["default_source_location_id"] = pos_config.transfer_source_location_id.id
-            if pos_config.transfer_operation_type_id:
-                context["default_picking_type_id"] = pos_config.transfer_operation_type_id.id
-
-        url = "/web"
-        params = []
-
-        if action:
-            params.append(f"action={action.id}")
-        if menu:
-            params.append(f"menu_id={menu.id}")
-        params.append("model=pasteleria.pos.transfer")
-        params.append("view_type=list")
-
-        if context:
-            params.append("context=" + quote(json.dumps(context)))
-
-        if params:
-            url += "#" + "&".join(params)
-
-        return {
-            "url": url,
-            "action_id": action.id if action else False,
-            "menu_id": menu.id if menu else False,
-            "context": context,
-        }
-
     def write(self, vals):
         vals = dict(vals)
         vals = self._prepare_auto_fields_from_vals(vals)
@@ -233,6 +193,73 @@ class PasteleriaPosTransfer(models.Model):
                 if rec.destination_pos_id not in rec.origin_pos_id.allowed_destination_pos_ids:
                     raise ValidationError(_("El POS destino no está permitido para este POS origen."))
 
+    def _get_available_qty_for_lot(self, product, lot, location):
+        self.ensure_one()
+        Quant = self.env["stock.quant"].sudo()
+
+        groups = Quant.read_group(
+            [
+                ("location_id", "child_of", location.id),
+                ("product_id", "=", product.id),
+                ("lot_id", "=", lot.id),
+            ],
+            ["quantity:sum", "reserved_quantity:sum"],
+            [],
+            lazy=False,
+        )
+
+        if not groups:
+            return 0.0
+
+        qty = groups[0].get("quantity", 0.0) or 0.0
+        reserved = groups[0].get("reserved_quantity", 0.0) or 0.0
+        return qty - reserved
+
+    def _validate_line_lot(self, line):
+        self.ensure_one()
+
+        if not line.lot_id:
+            raise UserError(_("Debes seleccionar un lote para el producto '%s'.") % line.product_id.display_name)
+
+        if line.lot_id.product_id != line.product_id:
+            raise UserError(_("El lote '%s' no pertenece al producto '%s'.") % (
+                line.lot_id.name,
+                line.product_id.display_name,
+            ))
+
+        invalid_lots = self.env["stock.lot"].pos_validate_sellable_lots(
+            self.origin_pos_id.id,
+            [line.lot_id.id],
+        )
+        if invalid_lots:
+            first = invalid_lots[0]
+            raise UserError(_(
+                "No se puede transferir el lote '%(lot)s' del producto '%(product)s' "
+                "porque está vencido desde %(date)s."
+            ) % {
+                "lot": first["lot_name"],
+                "product": first["product_name"],
+                "date": first["expiration_date"],
+            })
+
+        available_qty = self._get_available_qty_for_lot(
+            line.product_id,
+            line.lot_id,
+            self.source_location_id,
+        )
+
+        if line.qty > available_qty:
+            raise UserError(_(
+                "No hay suficiente stock en el lote '%(lot)s' del producto '%(product)s'.\n"
+                "Disponible en origen: %(available)s\n"
+                "Solicitado: %(requested)s"
+            ) % {
+                "lot": line.lot_id.name,
+                "product": line.product_id.display_name,
+                "available": available_qty,
+                "requested": line.qty,
+            })
+
     def _validate_lines(self):
         for rec in self:
             if not rec.line_ids:
@@ -242,20 +269,10 @@ class PasteleriaPosTransfer(models.Model):
                 if line.qty <= 0:
                     raise UserError(_("La cantidad debe ser mayor que cero en todas las líneas."))
 
-                available_qty = line.product_id.with_context(
-                    location=rec.source_location_id.id
-                ).qty_available
+                if not line.product_id:
+                    raise UserError(_("Todas las líneas deben tener producto."))
 
-                if line.qty > available_qty:
-                    raise UserError(_(
-                        "No hay suficiente stock para el producto %(product)s.\n"
-                        "Disponible en origen: %(available)s\n"
-                        "Solicitado: %(requested)s"
-                    ) % {
-                        "product": line.product_id.display_name,
-                        "available": available_qty,
-                        "requested": line.qty,
-                    })
+                rec._validate_line_lot(line)
 
     def _prepare_picking_vals(self):
         self.ensure_one()
@@ -272,7 +289,7 @@ class PasteleriaPosTransfer(models.Model):
     def _prepare_move_vals(self, line, picking):
         self.ensure_one()
         return {
-            "name": line.product_id.display_name,
+            "name": "%s [%s]" % (line.product_id.display_name, line.lot_id.name),
             "product_id": line.product_id.id,
             "product_uom_qty": line.qty,
             "product_uom": line.uom_id.id,
@@ -281,51 +298,6 @@ class PasteleriaPosTransfer(models.Model):
             "picking_id": picking.id,
             "company_id": self.company_id.id,
         }
-
-    def action_confirm(self):
-        StockPicking = self.env["stock.picking"]
-        StockMove = self.env["stock.move"]
-
-        for rec in self:
-            if rec.state != "draft":
-                continue
-
-            rec._validate_lines()
-
-            if not rec.picking_type_id:
-                raise UserError(_("No hay tipo de operación configurado en el POS origen."))
-            if not rec.source_location_id:
-                raise UserError(_("No hay ubicación origen configurada en el POS origen."))
-            if not rec.destination_location_id:
-                raise UserError(_("No hay ubicación destino configurada en el POS destino."))
-
-            picking = StockPicking.create(rec._prepare_picking_vals())
-
-            for line in rec.line_ids:
-                StockMove.create(rec._prepare_move_vals(line, picking))
-
-            picking.action_confirm()
-            picking.action_assign()
-
-            for move in picking.move_ids_without_package:
-                for move_line in move.move_line_ids:
-                    move_line.quantity = move.product_uom_qty
-
-            picking.button_validate()
-
-            rec.write({
-                "state": "confirmed",
-                "picking_id": picking.id,
-            })
-
-        return True
-
-    def action_cancel(self):
-        for rec in self:
-            if rec.state == "confirmed" and rec.picking_id and rec.picking_id.state not in ("cancel",):
-                raise UserError(_("No puedes cancelar una transferencia que ya generó un picking validado."))
-            rec.state = "cancelled"
-        return True
 
     @api.model
     def pos_get_transfer_popup_data(self, pos_config_id):
@@ -345,24 +317,58 @@ class PasteleriaPosTransfer(models.Model):
             ("active", "=", True),
         ])
 
-        product_list = []
-        for product in products:
-            qty_available = product.with_context(
-                location=pos_config.transfer_source_location_id.id
-            ).qty_available if pos_config.transfer_source_location_id else 0.0
-
-            product_list.append({
-                "id": product.id,
-                "name": product.display_name,
-                "qty_available": qty_available,
-                "uom_name": product.uom_id.name,
-            })
+        product_list = [{
+            "id": product.id,
+            "name": product.display_name,
+            "uom_name": product.uom_id.name,
+        } for product in products]
 
         return {
             "origin_pos_id": pos_config.id,
             "origin_pos_name": pos_config.name,
             "destinations": destinations,
             "products": product_list,
+        }
+
+    @api.model
+    def pos_get_product_lots_for_transfer(self, pos_config_id, product_id):
+        pos_config = self.env["pos.config"].browse(pos_config_id).exists()
+        product = self.env["product.product"].browse(product_id).exists()
+
+        if not pos_config:
+            raise UserError(_("No se encontró la configuración del POS."))
+        if not product:
+            raise UserError(_("No se encontró el producto."))
+
+        snapshot = self.env["stock.lot"].pos_build_product_expiry_snapshot(
+            pos_config.id,
+            [product.id],
+        )
+
+        product_data = snapshot.get("products", {}).get(product.id, {})
+        lots = product_data.get("lots", [])
+
+        result = []
+        for lot in lots:
+            result.append({
+                "lot_id": lot.get("lot_id"),
+                "lot_name": lot.get("lot_name"),
+                "qty_available": lot.get("qty_available", 0.0),
+                "expiration_date": lot.get("expiration_date"),
+                "state": lot.get("state"),
+                "sellable": lot.get("sellable"),
+                "expired": lot.get("expired"),
+                "days_left": lot.get("days_left"),
+                "selectable": bool(lot.get("sellable")) and lot.get("state") != "black" and (lot.get("qty_available", 0.0) > 0),
+            })
+
+        return {
+            "product_id": product.id,
+            "product_name": product.display_name,
+            "summary_state": product_data.get("summary_state"),
+            "preferred_lot_id": product_data.get("preferred_lot_id"),
+            "preferred_lot_name": product_data.get("preferred_lot_name"),
+            "lots": result,
         }
 
     @api.model
@@ -384,6 +390,7 @@ class PasteleriaPosTransfer(models.Model):
             "line_ids": [
                 (0, 0, {
                     "product_id": line["product_id"],
+                    "lot_id": line["lot_id"],
                     "qty": line["qty"],
                 })
                 for line in lines
@@ -397,6 +404,66 @@ class PasteleriaPosTransfer(models.Model):
             "transfer_name": transfer.name,
             "picking_id": transfer.picking_id.id if transfer.picking_id else False,
         }
+
+    def action_confirm(self):
+        StockPicking = self.env["stock.picking"]
+        StockMove = self.env["stock.move"]
+        StockMoveLine = self.env["stock.move.line"]
+
+        for rec in self:
+            if rec.state != "draft":
+                continue
+
+            rec._validate_lines()
+
+            if not rec.picking_type_id:
+                raise UserError(_("No hay tipo de operación configurado en el POS origen."))
+            if not rec.source_location_id:
+                raise UserError(_("No hay ubicación origen configurada en el POS origen."))
+            if not rec.destination_location_id:
+                raise UserError(_("No hay ubicación destino configurada en el POS destino."))
+
+            picking = StockPicking.create(rec._prepare_picking_vals())
+            line_move_pairs = []
+
+            for line in rec.line_ids:
+                move = StockMove.create(rec._prepare_move_vals(line, picking))
+                line_move_pairs.append((line, move))
+
+            picking.action_confirm()
+            picking.action_assign()
+
+            for line, move in line_move_pairs:
+                if move.move_line_ids:
+                    move.move_line_ids.unlink()
+
+                StockMoveLine.create({
+                    "move_id": move.id,
+                    "picking_id": picking.id,
+                    "product_id": line.product_id.id,
+                    "product_uom_id": line.uom_id.id,
+                    "quantity": line.qty,
+                    "location_id": rec.source_location_id.id,
+                    "location_dest_id": rec.destination_location_id.id,
+                    "lot_id": line.lot_id.id,
+                    "company_id": rec.company_id.id,
+                })
+
+            picking.button_validate()
+
+            rec.write({
+                "state": "confirmed",
+                "picking_id": picking.id,
+            })
+
+        return True
+
+    def action_cancel(self):
+        for rec in self:
+            if rec.state == "confirmed" and rec.picking_id and rec.picking_id.state not in ("cancel",):
+                raise UserError(_("No puedes cancelar una transferencia que ya generó un picking validado."))
+            rec.state = "cancelled"
+        return True
 
 
 class PasteleriaPosTransferLine(models.Model):
@@ -418,6 +485,13 @@ class PasteleriaPosTransferLine(models.Model):
         domain="[('available_in_pos', '=', True)]",
     )
 
+    lot_id = fields.Many2one(
+        "stock.lot",
+        string="Lote",
+        required=True,
+        domain="[('product_id', '=', product_id)]",
+    )
+
     qty = fields.Float(
         string="Cantidad",
         required=True,
@@ -434,17 +508,73 @@ class PasteleriaPosTransferLine(models.Model):
     )
 
     available_qty = fields.Float(
-        string="Disponible en origen",
+        string="Disponible en lote",
         compute="_compute_available_qty",
         digits="Product Unit of Measure",
     )
 
-    @api.depends("product_id", "transfer_id.source_location_id")
+    lot_expiration_date = fields.Date(
+        string="Fecha vencimiento",
+        compute="_compute_lot_meta",
+    )
+
+    lot_expiry_state = fields.Selection([
+        ("green", "Verde"),
+        ("yellow", "Amarillo"),
+        ("red", "Rojo"),
+        ("black", "Negro"),
+    ], string="Semáforo", compute="_compute_lot_meta")
+
+    lot_selectable = fields.Boolean(
+        string="Lote seleccionable",
+        compute="_compute_lot_meta",
+    )
+
+    @api.depends("product_id", "lot_id", "transfer_id.source_location_id")
     def _compute_available_qty(self):
+        Quant = self.env["stock.quant"].sudo()
+
         for line in self:
             available = 0.0
-            if line.product_id and line.transfer_id.source_location_id:
-                available = line.product_id.with_context(
-                    location=line.transfer_id.source_location_id.id
-                ).qty_available
+            if line.product_id and line.lot_id and line.transfer_id.source_location_id:
+                groups = Quant.read_group(
+                    [
+                        ("location_id", "child_of", line.transfer_id.source_location_id.id),
+                        ("product_id", "=", line.product_id.id),
+                        ("lot_id", "=", line.lot_id.id),
+                    ],
+                    ["quantity:sum", "reserved_quantity:sum"],
+                    [],
+                    lazy=False,
+                )
+                if groups:
+                    qty = groups[0].get("quantity", 0.0) or 0.0
+                    reserved = groups[0].get("reserved_quantity", 0.0) or 0.0
+                    available = qty - reserved
             line.available_qty = available
+
+    @api.depends("lot_id")
+    def _compute_lot_meta(self):
+        StockLot = self.env["stock.lot"]
+        today = StockLot._pos_today()
+
+        for line in self:
+            line.lot_expiration_date = False
+            line.lot_expiry_state = False
+            line.lot_selectable = False
+
+            if not line.lot_id:
+                continue
+
+            expiry_info = line.lot_id._get_effective_expiration_value(line.lot_id)
+            expiration_date = expiry_info["local_date"]
+            warning_days = getattr(line.product_id, "x_pos_expiry_warning_days", 2) or 2
+            state, sellable, expired, days_left = line.lot_id._compute_expiry_state(
+                line.lot_id,
+                today=today,
+                warning_days=warning_days,
+            )
+
+            line.lot_expiration_date = expiration_date
+            line.lot_expiry_state = state
+            line.lot_selectable = bool(sellable) and state != "black"

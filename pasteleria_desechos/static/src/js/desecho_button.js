@@ -112,6 +112,87 @@ function productOptionsHtml(products, selectedId) {
         .join("");
 }
 
+function normalizeState(state) {
+    const s = (state || "").toLowerCase();
+    if (["green", "yellow", "red", "black"].includes(s)) {
+        return s;
+    }
+    return "green";
+}
+
+function stateLabel(state) {
+    const s = normalizeState(state);
+    return {
+        green: "Verde",
+        yellow: "Amarillo",
+        red: "Rojo",
+        black: "Negro",
+    }[s];
+}
+
+function formatDate(value) {
+    if (!value) return "—";
+    try {
+        const d = new Date(value);
+        if (!isNaN(d.getTime())) {
+            return d.toISOString().slice(0, 10);
+        }
+    } catch (_) {}
+    return String(value);
+}
+
+function getLotName(lot) {
+    return lot.lot_name || lot.name || lot.display_name || `Lote ${lot.lot_id || ""}`;
+}
+
+function lotsSelectHtml(line) {
+    const lots = line.lots || [];
+    if (!lots.length) {
+        return `<option value="">No hay lotes disponibles</option>`;
+    }
+
+    return [
+        `<option value="">Seleccionar lote...</option>`,
+        ...lots.map((lot) => {
+            const selected = Number(line.lot_id) === Number(lot.lot_id) ? "selected" : "";
+            const disabled = lot.selectable ? "" : "disabled";
+            return `<option value="${lot.lot_id}" ${selected} ${disabled}>
+                ${escapeHtml(getLotName(lot))} - Disp: ${escapeHtml(lot.qty_available)} - ${escapeHtml(stateLabel(lot.state))}
+            </option>`;
+        }),
+    ].join("");
+}
+
+function lotCardsHtml(line) {
+    const lots = line.lots || [];
+    if (!lots.length) {
+        return `<div class="pd-lots-empty">No hay lotes disponibles para este producto.</div>`;
+    }
+
+    return `
+        <div class="pd-lots-grid">
+            ${lots.map((lot) => {
+                const state = normalizeState(lot.state);
+                const selected = Number(line.lot_id) === Number(lot.lot_id);
+                const selectable = !!lot.selectable;
+                return `
+                    <div class="pd-lot-card ${selected ? "selected" : ""} ${selectable ? "selectable" : "disabled"}"
+                         data-lot-id="${lot.lot_id}">
+                        <div class="pd-lot-card-top">
+                            <strong>${escapeHtml(getLotName(lot))}</strong>
+                            <span class="pd-sem-badge pd-sem-${state}">${escapeHtml(stateLabel(state))}</span>
+                        </div>
+                        <div class="pd-lot-card-body">
+                            <div>Disponible: ${escapeHtml(lot.qty_available)}</div>
+                            <div>Vence: ${escapeHtml(formatDate(lot.expiration_date))}</div>
+                        </div>
+                    </div>
+                `;
+            }).join("")}
+        </div>
+    `;
+}
+
 function buildInitialLines(ctx) {
     const order = getOrder(ctx);
 
@@ -124,6 +205,12 @@ function buildInitialLines(ctx) {
                     product_id: p.id,
                     qty: Math.max(1, getQtyFromLine(selectedLine) || 1),
                     reason: "",
+                    lot_id: false,
+                    tracking: p.tracking || "none",
+                    lots: [],
+                    loading_lots: false,
+                    lots_error: "",
+                    lots_loaded: false,
                 },
             ];
         }
@@ -139,6 +226,12 @@ function buildInitialLines(ctx) {
                     product_id: p.id,
                     qty: Math.max(1, getQtyFromLine(line) || 1),
                     reason: "",
+                    lot_id: false,
+                    tracking: p.tracking || "none",
+                    lots: [],
+                    loading_lots: false,
+                    lots_error: "",
+                    lots_loaded: false,
                 };
             })
             .filter(Boolean);
@@ -151,6 +244,12 @@ function buildInitialLines(ctx) {
                 product_id: allProducts[0].id,
                 qty: 1,
                 reason: "",
+                lot_id: false,
+                tracking: allProducts[0].tracking || "none",
+                lots: [],
+                loading_lots: false,
+                lots_error: "",
+                lots_loaded: false,
             },
         ];
     }
@@ -191,27 +290,88 @@ function showToast(message, isError = false) {
     }, 2600);
 }
 
+async function loadLotsForLine(ctx, lines, index, rerender) {
+    const line = lines[index];
+    if (!line || !line.product_id) return;
+    if (line.loading_lots) return;
+
+    const orm = getOrm(ctx);
+    const posConfigId = getPosConfigId(ctx);
+    if (!orm || !posConfigId) return;
+
+    line.loading_lots = true;
+    line.lots_error = "";
+    line.lots = [];
+    line.lot_id = false;
+    rerender();
+
+    try {
+        const result = await orm.call(
+            "pasteleria.desecho",
+            "pos_get_product_lots_for_waste",
+            [posConfigId, Number(line.product_id)]
+        );
+
+        line.tracking = result?.tracking || "none";
+        line.lots = result?.lots || [];
+        line.lot_id = result?.preferred_lot_id || false;
+        line.lots_error = "";
+    } catch (error) {
+        console.error("[Desecho] Error cargando lotes:", error);
+        line.lots_error = error?.message || "No se pudieron cargar los lotes.";
+    } finally {
+        line.loading_lots = false;
+        line.lots_loaded = true;
+        rerender();
+    }
+}
+
 function lineRowHtml(index, line, products) {
+    const requiresLot = (line.tracking || "none") !== "none";
+
     return `
         <div class="pd-line" data-line-index="${index}">
-            <div class="pd-field pd-product">
-                <label>Producto</label>
-                <select class="pd-input pd-product-select">
-                    ${productOptionsHtml(products, line.product_id)}
-                </select>
+            <div class="pd-line-main ${requiresLot ? "with-lot" : "without-lot"}">
+                <div class="pd-field pd-product">
+                    <label>Producto</label>
+                    <select class="pd-input pd-product-select">
+                        ${productOptionsHtml(products, line.product_id)}
+                    </select>
+                </div>
+
+                ${requiresLot ? `
+                    <div class="pd-field pd-lot">
+                        <label>Lote</label>
+                        <select class="pd-input pd-lot-select">
+                            ${lotsSelectHtml(line)}
+                        </select>
+                    </div>
+                ` : ""}
+
+                <div class="pd-field pd-qty">
+                    <label>Cantidad</label>
+                    <input class="pd-input pd-qty-input" type="number" min="0.01" step="0.01" value="${escapeHtml(line.qty || 1)}" />
+                </div>
+
+                <div class="pd-field pd-reason">
+                    <label>Motivo</label>
+                    <input class="pd-input pd-reason-input" type="text" value="${escapeHtml(line.reason || "")}" placeholder="Opcional" />
+                </div>
+
+                <div class="pd-field pd-remove-wrap">
+                    <label>&nbsp;</label>
+                    <button type="button" class="pd-remove-line">Quitar</button>
+                </div>
             </div>
-            <div class="pd-field pd-qty">
-                <label>Cantidad</label>
-                <input class="pd-input pd-qty-input" type="number" min="0.01" step="0.01" value="${escapeHtml(line.qty || 1)}" />
-            </div>
-            <div class="pd-field pd-reason">
-                <label>Motivo</label>
-                <input class="pd-input pd-reason-input" type="text" value="${escapeHtml(line.reason || "")}" placeholder="Opcional" />
-            </div>
-            <div class="pd-field pd-remove-wrap">
-                <label>&nbsp;</label>
-                <button type="button" class="pd-remove-line">Quitar</button>
-            </div>
+
+            ${requiresLot ? `
+                <div class="pd-lots-section">
+                    <div class="pd-lots-title">Lotes disponibles</div>
+                    ${line.loading_lots ? `<div class="pd-lots-loading">Cargando lotes...</div>` : ""}
+                    ${line.lots_error ? `<div class="pd-lots-error">${escapeHtml(line.lots_error)}</div>` : ""}
+                    ${!line.loading_lots && !line.lots_error ? lotCardsHtml(line) : ""}
+                </div>
+            ` : ""}
         </div>
     `;
 }
@@ -221,6 +381,8 @@ function renderModalContent(ctx, root, lines) {
     const now = new Date().toLocaleString();
     const cashier = escapeHtml(getCashierName(ctx));
     const posName = escapeHtml(getPosName(ctx));
+
+    const rerender = () => renderModalContent(ctx, root, lines);
 
     root.innerHTML = `
         <div class="pasteleria_desecho_overlay">
@@ -271,35 +433,90 @@ function renderModalContent(ctx, root, lines) {
     });
 
     root.querySelector(".pd-add-line")?.addEventListener("click", () => {
-        const firstProductId = products[0]?.id || null;
+        const firstProduct = products[0] || null;
         lines.push({
-            product_id: firstProductId,
+            product_id: firstProduct?.id || null,
             qty: 1,
             reason: "",
+            lot_id: false,
+            tracking: firstProduct?.tracking || "none",
+            lots: [],
+            loading_lots: false,
+            lots_error: "",
+            lots_loaded: false,
         });
-        renderModalContent(ctx, root, lines);
+        rerender();
+
+        const newIndex = lines.length - 1;
+        if (firstProduct && firstProduct.tracking && firstProduct.tracking !== "none") {
+            loadLotsForLine(ctx, lines, newIndex, rerender);
+        }
     });
 
-    root.querySelectorAll(".pd-remove-line").forEach((btn) => {
-        btn.addEventListener("click", (ev) => {
-            const lineEl = ev.currentTarget.closest(".pd-line");
-            const idx = Number(lineEl?.dataset?.lineIndex ?? -1);
-            if (idx >= 0) {
-                lines.splice(idx, 1);
-                renderModalContent(ctx, root, lines);
+    root.querySelectorAll(".pd-line").forEach((lineEl) => {
+        const idx = Number(lineEl.dataset.lineIndex || -1);
+        if (idx < 0 || !lines[idx]) return;
+        const line = lines[idx];
+
+        lineEl.querySelector(".pd-product-select")?.addEventListener("change", async (ev) => {
+            const productId = Number(ev.currentTarget.value || 0);
+            const product = products.find((p) => Number(p.id) === productId) || null;
+
+            line.product_id = productId || false;
+            line.qty = Number(line.qty || 1);
+            line.reason = line.reason || "";
+            line.lot_id = false;
+            line.tracking = product?.tracking || "none";
+            line.lots = [];
+            line.loading_lots = false;
+            line.lots_error = "";
+            line.lots_loaded = false;
+
+            rerender();
+
+            if (productId && product?.tracking && product.tracking !== "none") {
+                await loadLotsForLine(ctx, lines, idx, rerender);
             }
+        });
+
+        lineEl.querySelector(".pd-qty-input")?.addEventListener("input", (ev) => {
+            line.qty = Number(ev.currentTarget.value || 0);
+        });
+
+        lineEl.querySelector(".pd-reason-input")?.addEventListener("input", (ev) => {
+            line.reason = ev.currentTarget.value || "";
+        });
+
+        lineEl.querySelector(".pd-remove-line")?.addEventListener("click", () => {
+            lines.splice(idx, 1);
+            rerender();
+        });
+
+        lineEl.querySelector(".pd-lot-select")?.addEventListener("change", (ev) => {
+            line.lot_id = Number(ev.currentTarget.value || 0) || false;
+            rerender();
+        });
+
+        lineEl.querySelectorAll(".pd-lot-card.selectable").forEach((card) => {
+            card.addEventListener("click", () => {
+                const lotId = Number(card.dataset.lotId || 0);
+                line.lot_id = lotId || false;
+                rerender();
+            });
         });
     });
 
     root.querySelector(".pd-submit")?.addEventListener("click", async () => {
         const errorBox = root.querySelector(".pd-error");
-        const rowEls = Array.from(root.querySelectorAll(".pd-line"));
 
-        const payloadLines = rowEls
-            .map((row) => ({
-                product_id: Number(row.querySelector(".pd-product-select")?.value || 0),
-                qty: Number(row.querySelector(".pd-qty-input")?.value || 0),
-                reason: (row.querySelector(".pd-reason-input")?.value || "").trim(),
+        const payloadLines = lines
+            .map((line) => ({
+                product_id: Number(line.product_id || 0),
+                lot_id: line.tracking !== "none" ? (Number(line.lot_id || 0) || false) : false,
+                qty: Number(line.qty || 0),
+                reason: String(line.reason || "").trim(),
+                tracking: line.tracking || "none",
+                lots: line.lots || [],
             }))
             .filter((line) => line.product_id && line.qty > 0);
 
@@ -307,6 +524,28 @@ function renderModalContent(ctx, root, lines) {
             errorBox.textContent = "Debes agregar al menos una línea con cantidad mayor a 0.";
             errorBox.style.display = "block";
             return;
+        }
+
+        for (const line of payloadLines) {
+            if (line.tracking !== "none" && !line.lot_id) {
+                errorBox.textContent = "Hay productos con lote obligatorio y aún no seleccionaste lote.";
+                errorBox.style.display = "block";
+                return;
+            }
+
+            if (line.tracking !== "none") {
+                const lot = (line.lots || []).find((l) => Number(l.lot_id) === Number(line.lot_id));
+                if (!lot) {
+                    errorBox.textContent = "Uno de los lotes seleccionados ya no es válido.";
+                    errorBox.style.display = "block";
+                    return;
+                }
+                if (Number(line.qty) > Number(lot.qty_available || 0)) {
+                    errorBox.textContent = `La cantidad a desechar no puede ser mayor al disponible del lote ${getLotName(lot)}.`;
+                    errorBox.style.display = "block";
+                    return;
+                }
+            }
         }
 
         const orm = getOrm(ctx);
@@ -326,7 +565,12 @@ function renderModalContent(ctx, root, lines) {
             const res = await orm.call("pasteleria.desecho", "create_from_pos", [
                 {
                     pos_config_id: posConfigId,
-                    lines: payloadLines,
+                    lines: payloadLines.map((l) => ({
+                        product_id: l.product_id,
+                        lot_id: l.lot_id || false,
+                        qty: l.qty,
+                        reason: l.reason,
+                    })),
                 },
             ]);
 
@@ -339,6 +583,15 @@ function renderModalContent(ctx, root, lines) {
             submitBtn.disabled = false;
             submitBtn.textContent = "Crear solicitud";
         }
+    });
+
+    // Carga inicial solo una vez por línea para evitar loops infinitos.
+    lines.forEach((line, idx) => {
+        if (!line || !line.product_id) return;
+        if ((line.tracking || "none") === "none") return;
+        if (line.loading_lots) return;
+        if (line.lots_loaded) return;
+        loadLotsForLine(ctx, lines, idx, rerender);
     });
 }
 

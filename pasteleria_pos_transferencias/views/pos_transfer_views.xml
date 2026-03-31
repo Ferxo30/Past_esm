@@ -51,10 +51,13 @@
                     </group>
 
                     <notebook>
-                        <page string="Productos">
+                        <page string="Productos / Lotes">
                             <field name="line_ids">
                                 <list editable="bottom">
                                     <field name="product_id"/>
+                                    <field name="lot_id"/>
+                                    <field name="lot_expiration_date" readonly="1"/>
+                                    <field name="lot_expiry_state" readonly="1"/>
                                     <field name="available_qty" readonly="1"/>
                                     <field name="qty"/>
                                     <field name="uom_id" readonly="1"/>
@@ -67,6 +70,23 @@
                     </notebook>
                 </sheet>
             </form>
+        </field>
+    </record>
+
+    <record id="view_pasteleria_pos_transfer_line_tree" model="ir.ui.view">
+        <field name="name">pasteleria.pos.transfer.line.tree</field>
+        <field name="model">pasteleria.pos.transfer.line</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="transfer_id"/>
+                <field name="product_id"/>
+                <field name="lot_id"/>
+                <field name="lot_expiration_date"/>
+                <field name="lot_expiry_state"/>
+                <field name="available_qty"/>
+                <field name="qty"/>
+                <field name="uom_id"/>
+            </list>
         </field>
     </record>
 

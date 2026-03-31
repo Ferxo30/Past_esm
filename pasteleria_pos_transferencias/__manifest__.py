@@ -12,6 +12,7 @@
         "product",
         "mail",
         "pasteleria_desechos",
+        "pasteleria_pos_lot_expiry_guard",
     ],
     "data": [
         "security/security.xml",

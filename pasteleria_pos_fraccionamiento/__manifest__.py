@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Pastelería - Fraccionamiento de Pasteles",
-    "version": "18.0.1.0.0",
+    "version": "18.0.1.1.0",
     "category": "Inventory",
     "summary": "Fraccionamiento de pasteles completos a porciones con trazabilidad e impacto en inventario.",
     "depends": [
@@ -10,6 +10,7 @@
         "point_of_sale",
         "mail",
         "pasteleria_desechos",
+        "pasteleria_pos_lot_expiry_guard",
     ],
     "data": [
         "security/security.xml",
