@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="pasteleria_pos_lot_expiry_guard.Orderline"
+       t-inherit="point_of_sale.Orderline"
+       t-inherit-mode="extension">
+        <xpath expr="//div[contains(@class, 'product-name')]" position="after">
+            <t t-set="expiryInfo" t-value="this.expiryIndicatorState"/>
+            <t t-if="expiryInfo and expiryInfo.summary_state">
+                <div class="o_pos_orderline_expiry_badges">
+                    <span t-attf-class="o_pos_expiry_dot o_pos_expiry_dot_#{expiryInfo.summary_state}"
+                          t-att-title="'Estado del lote: ' + expiryInfo.summary_state"/>
+                    <span t-if="expiryInfo.expired and expiryInfo.summary_state !== 'black'"
+                          class="o_pos_expiry_dot o_pos_expiry_dot_black o_pos_expiry_dot_secondary"
+                          title="Lote vencido"/>
+                </div>
+            </t>
+        </xpath>
+    </t>
+</templates>

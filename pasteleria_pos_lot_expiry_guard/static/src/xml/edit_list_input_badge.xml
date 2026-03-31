@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+
+    <t t-name="pasteleria_pos_lot_expiry_guard.EditListInput"
+       t-inherit="point_of_sale.EditListInput"
+       t-inherit-mode="extension">
+
+        <!-- Estado del lote actualmente escrito/seleccionado -->
+        <xpath expr="//div[contains(@class, 'input-group')]" position="after">
+            <t t-set="meta" t-value="this.optionMeta"/>
+            <div t-if="meta" class="o_pos_selected_lot_state">
+                <span t-attf-class="o_pos_expiry_dot o_pos_expiry_dot_#{meta.state}" />
+                <span class="o_pos_selected_lot_state_text">
+                    <t t-if="meta.state === 'black'">Vencido</t>
+                    <t t-if="meta.state === 'red'">Caduca hoy</t>
+                    <t t-if="meta.state === 'yellow'">Caduca pronto</t>
+                    <t t-if="meta.state === 'green'">Vigente</t>
+                </span>
+                <span class="o_pos_selected_lot_state_date" t-if="meta.expiration_date">
+                    <t t-esc="meta.expiration_date"/>
+                </span>
+            </div>
+        </xpath>
+
+        <!-- Puntito al lado de cada opción -->
+        <xpath expr="//div[contains(@class, 'option')]/span" position="before">
+            <t t-set="optMeta" t-value="this.getDisplayedOptionMeta(option)"/>
+            <span t-if="optMeta"
+                  t-attf-class="o_pos_expiry_dot o_pos_expiry_dot_#{optMeta.state} me-2" />
+        </xpath>
+
+        <xpath expr="//div[contains(@class, 'option')]/span" position="after">
+            <t t-set="optMeta" t-value="this.getDisplayedOptionMeta(option)"/>
+            <span t-if="optMeta and optMeta.expiration_date"
+                  class="o_pos_option_lot_date ms-2">
+                <t t-esc="optMeta.expiration_date"/>
+            </span>
+        </xpath>
+
+    </t>
+
+</templates>

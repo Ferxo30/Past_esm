@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+
+    <t t-name="pasteleria_pos_lot_expiry_guard.EditListPopupForward"
+       t-inherit="point_of_sale.EditListPopup"
+       t-inherit-mode="extension">
+
+        <xpath expr="//EditListInput" position="attributes">
+            <attribute name="getOptionMeta">props.getOptionMeta</attribute>
+        </xpath>
+
+    </t>
+
+</templates>

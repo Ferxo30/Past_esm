@@ -1,0 +1,129 @@
+.product,
+.pos .product,
+article.product,
+.o_pos_products .product {
+    position: relative !important;
+    overflow: visible !important;
+}
+
+.o_pos_expiry_badges {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    gap: 4px;
+    z-index: 50;
+    pointer-events: none;
+}
+
+.o_pos_expiry_dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.o_pos_expiry_dot_secondary {
+    width: 9px;
+    height: 9px;
+    opacity: 0.9;
+}
+
+.o_pos_expiry_dot_green {
+    background: #2ea043;
+}
+
+.o_pos_expiry_dot_yellow {
+    background: #d4a72c;
+}
+
+.o_pos_expiry_dot_red {
+    background: #d1242f;
+}
+
+.o_pos_expiry_dot_black {
+    background: #111111;
+}
+
+.o_pos_orderline_expiry_badges {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+    margin-left: 2px;
+}
+.o_pos_selected_lot_state {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    padding-left: 8px;
+}
+
+.options-dropdown .option .o_pos_expiry_dot {
+    margin-right: 4px;
+}
+
+.form-check-label .o_pos_expiry_dot,
+.btn .o_pos_expiry_dot {
+    vertical-align: middle;
+}
+.o_pos_selected_lot_state {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: -6px;
+    margin-bottom: 10px;
+    padding-left: 6px;
+}
+
+.o_pos_selected_lot_state_text {
+    font-size: 13px;
+    color: #444;
+}
+
+.o_pos_selected_lot_state_date,
+.o_pos_option_lot_date {
+    font-size: 12px;
+    color: #777;
+}
+
+.options-dropdown .option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.o_pos_selected_lot_state {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    margin-bottom: 10px;
+    padding-left: 6px;
+}
+
+.o_pos_selected_lot_state_text {
+    font-size: 13px;
+    color: #444;
+}
+
+.o_pos_selected_lot_state_date,
+.o_pos_option_lot_date {
+    font-size: 12px;
+    color: #777;
+}
+
+.options-dropdown .option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.options-dropdown .option .o_pos_expiry_dot {
+    margin-right: 4px;
+}

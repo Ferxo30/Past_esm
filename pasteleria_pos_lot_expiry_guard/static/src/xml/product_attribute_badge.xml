@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+
+    <t t-name="pasteleria_pos_lot_expiry_guard.RadioProductAttribute"
+       t-inherit="point_of_sale.RadioProductAttribute"
+       t-inherit-mode="extension">
+
+        <xpath expr="//label[@class='form-check-label']/span" position="after">
+            <t t-set="expiryInfo" t-value="this.getValueExpiryInfo(value)"/>
+            <span t-if="expiryInfo and expiryInfo.summary_state"
+                  class="ms-2 d-inline-flex align-items-center">
+                <span t-attf-class="o_pos_expiry_dot o_pos_expiry_dot_#{expiryInfo.summary_state}" />
+                <span t-if="expiryInfo.has_expired_lots and expiryInfo.summary_state !== 'black'"
+                      class="o_pos_expiry_dot o_pos_expiry_dot_black o_pos_expiry_dot_secondary ms-1"/>
+            </span>
+        </xpath>
+
+    </t>
+
+    <t t-name="pasteleria_pos_lot_expiry_guard.PillsProductAttribute"
+       t-inherit="point_of_sale.PillsProductAttribute"
+       t-inherit-mode="extension">
+
+        <xpath expr="//label[contains(@class, 'btn')]/span[1]" position="after">
+            <t t-set="expiryInfo" t-value="this.getValueExpiryInfo(value)"/>
+            <span t-if="expiryInfo and expiryInfo.summary_state"
+                  class="ms-2 d-inline-flex align-items-center">
+                <span t-attf-class="o_pos_expiry_dot o_pos_expiry_dot_#{expiryInfo.summary_state}" />
+                <span t-if="expiryInfo.has_expired_lots and expiryInfo.summary_state !== 'black'"
+                      class="o_pos_expiry_dot o_pos_expiry_dot_black o_pos_expiry_dot_secondary ms-1"/>
+            </span>
+        </xpath>
+
+    </t>
+
+</templates>
