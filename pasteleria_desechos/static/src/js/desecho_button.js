@@ -121,13 +121,12 @@ function normalizeState(state) {
 }
 
 function stateLabel(state) {
-    const s = normalizeState(state);
     return {
         green: "Verde",
         yellow: "Amarillo",
         red: "Rojo",
         black: "Negro",
-    }[s];
+    }[normalizeState(state)];
 }
 
 function formatDate(value) {
@@ -143,6 +142,27 @@ function formatDate(value) {
 
 function getLotName(lot) {
     return lot.lot_name || lot.name || lot.display_name || `Lote ${lot.lot_id || ""}`;
+}
+
+function getOperationLabel(operationType) {
+    return operationType === "gift" ? "regalo" : "desecho";
+}
+
+function getOperationLabelTitle(operationType) {
+    return operationType === "gift" ? "Regalo" : "Desecho";
+}
+
+function operationTypeHtml(selected) {
+    return `
+        <label class="pd-radio-option">
+            <input type="radio" name="pd_operation_type" value="waste" ${selected !== "gift" ? "checked" : ""}/>
+            <span>Desecho</span>
+        </label>
+        <label class="pd-radio-option">
+            <input type="radio" name="pd_operation_type" value="gift" ${selected === "gift" ? "checked" : ""}/>
+            <span>Regalo</span>
+        </label>
+    `;
 }
 
 function lotsSelectHtml(line) {
@@ -317,7 +337,7 @@ async function loadLotsForLine(ctx, lines, index, rerender) {
         line.lot_id = result?.preferred_lot_id || false;
         line.lots_error = "";
     } catch (error) {
-        console.error("[Desecho] Error cargando lotes:", error);
+        console.error("[Desecho/Regalo] Error cargando lotes:", error);
         line.lots_error = error?.message || "No se pudieron cargar los lotes.";
     } finally {
         line.loading_lots = false;
@@ -376,21 +396,22 @@ function lineRowHtml(index, line, products) {
     `;
 }
 
-function renderModalContent(ctx, root, lines) {
+function renderModalContent(ctx, root, lines, operationType = "waste") {
     const products = getLoadedProducts(ctx);
     const now = new Date().toLocaleString();
     const cashier = escapeHtml(getCashierName(ctx));
     const posName = escapeHtml(getPosName(ctx));
 
-    const rerender = () => renderModalContent(ctx, root, lines);
+    const rerender = (newOperationType = operationType) =>
+        renderModalContent(ctx, root, lines, newOperationType);
 
     root.innerHTML = `
         <div class="pasteleria_desecho_overlay">
-            <div class="pasteleria_desecho_modal" role="dialog" aria-modal="true" aria-label="Registrar desecho">
+            <div class="pasteleria_desecho_modal" role="dialog" aria-modal="true" aria-label="Registrar desecho o regalo">
                 <div class="pd-header">
                     <div>
-                        <h3>Registrar desecho</h3>
-                        <p>El inventario no se descontará hasta que lo confirme el gerente.</p>
+                        <h3>Registrar desecho / regalo</h3>
+                        <p>El inventario no se moverá hasta que lo confirme el gerente.</p>
                     </div>
                     <button type="button" class="pd-close" aria-label="Cerrar">×</button>
                 </div>
@@ -399,6 +420,13 @@ function renderModalContent(ctx, root, lines) {
                     <div><span>Cajera</span><strong>${cashier || "—"}</strong></div>
                     <div><span>Punto de venta</span><strong>${posName || "—"}</strong></div>
                     <div><span>Fecha</span><strong>${escapeHtml(now)}</strong></div>
+                </div>
+
+                <div class="pd-operation-type-box">
+                    <div class="pd-operation-type-title">Tipo de operación</div>
+                    <div class="pd-operation-type-options">
+                        ${operationTypeHtml(operationType)}
+                    </div>
                 </div>
 
                 <div class="pd-error" style="display:none;"></div>
@@ -432,6 +460,13 @@ function renderModalContent(ctx, root, lines) {
         }
     });
 
+    root.querySelectorAll('input[name="pd_operation_type"]').forEach((radio) => {
+        radio.addEventListener("change", (ev) => {
+            const newValue = ev.currentTarget.value || "waste";
+            rerender(newValue);
+        });
+    });
+
     root.querySelector(".pd-add-line")?.addEventListener("click", () => {
         const firstProduct = products[0] || null;
         lines.push({
@@ -445,11 +480,11 @@ function renderModalContent(ctx, root, lines) {
             lots_error: "",
             lots_loaded: false,
         });
-        rerender();
+        rerender(operationType);
 
         const newIndex = lines.length - 1;
         if (firstProduct && firstProduct.tracking && firstProduct.tracking !== "none") {
-            loadLotsForLine(ctx, lines, newIndex, rerender);
+            loadLotsForLine(ctx, lines, newIndex, () => rerender(operationType));
         }
     });
 
@@ -472,10 +507,10 @@ function renderModalContent(ctx, root, lines) {
             line.lots_error = "";
             line.lots_loaded = false;
 
-            rerender();
+            rerender(operationType);
 
             if (productId && product?.tracking && product.tracking !== "none") {
-                await loadLotsForLine(ctx, lines, idx, rerender);
+                await loadLotsForLine(ctx, lines, idx, () => rerender(operationType));
             }
         });
 
@@ -489,19 +524,19 @@ function renderModalContent(ctx, root, lines) {
 
         lineEl.querySelector(".pd-remove-line")?.addEventListener("click", () => {
             lines.splice(idx, 1);
-            rerender();
+            rerender(operationType);
         });
 
         lineEl.querySelector(".pd-lot-select")?.addEventListener("change", (ev) => {
             line.lot_id = Number(ev.currentTarget.value || 0) || false;
-            rerender();
+            rerender(operationType);
         });
 
         lineEl.querySelectorAll(".pd-lot-card.selectable").forEach((card) => {
             card.addEventListener("click", () => {
                 const lotId = Number(card.dataset.lotId || 0);
                 line.lot_id = lotId || false;
-                rerender();
+                rerender(operationType);
             });
         });
     });
@@ -541,7 +576,7 @@ function renderModalContent(ctx, root, lines) {
                     return;
                 }
                 if (Number(line.qty) > Number(lot.qty_available || 0)) {
-                    errorBox.textContent = `La cantidad a desechar no puede ser mayor al disponible del lote ${getLotName(lot)}.`;
+                    errorBox.textContent = `La cantidad no puede ser mayor al disponible del lote ${getLotName(lot)}.`;
                     errorBox.style.display = "block";
                     return;
                 }
@@ -565,6 +600,7 @@ function renderModalContent(ctx, root, lines) {
             const res = await orm.call("pasteleria.desecho", "create_from_pos", [
                 {
                     pos_config_id: posConfigId,
+                    operation_type: operationType,
                     lines: payloadLines.map((l) => ({
                         product_id: l.product_id,
                         lot_id: l.lot_id || false,
@@ -575,35 +611,36 @@ function renderModalContent(ctx, root, lines) {
             ]);
 
             close();
-            showToast(`Desecho ${res.name} creado y enviado a aprobación.`);
+            showToast(
+                `${getOperationLabelTitle(res.operation_type || operationType)} ${res.name} creado y enviado a aprobación.`
+            );
         } catch (error) {
-            console.error("[Desecho] Error creando solicitud:", error);
-            errorBox.textContent = error?.message || "No se pudo crear el desecho. Revisa servidor.";
+            console.error("[Desecho/Regalo] Error creando solicitud:", error);
+            errorBox.textContent = error?.message || "No se pudo crear la solicitud. Revisa servidor.";
             errorBox.style.display = "block";
             submitBtn.disabled = false;
             submitBtn.textContent = "Crear solicitud";
         }
     });
 
-    // Carga inicial solo una vez por línea para evitar loops infinitos.
     lines.forEach((line, idx) => {
         if (!line || !line.product_id) return;
         if ((line.tracking || "none") === "none") return;
         if (line.loading_lots) return;
         if (line.lots_loaded) return;
-        loadLotsForLine(ctx, lines, idx, rerender);
+        loadLotsForLine(ctx, lines, idx, () => rerender(operationType));
     });
 }
 
 function openDesechoModal(ctx) {
     const lines = buildInitialLines(ctx);
     if (!lines.length) {
-        window.alert("No hay líneas o productos disponibles para registrar desecho.");
+        window.alert("No hay líneas o productos disponibles para registrar desecho o regalo.");
         return;
     }
 
     const root = ensureModalRoot();
-    renderModalContent(ctx, root, lines);
+    renderModalContent(ctx, root, lines, "waste");
 }
 
 function findPayButtonElement() {
@@ -621,7 +658,7 @@ function ensureDesechoButton(ctx) {
     const btn = document.createElement("button");
     btn.id = "btn_pasteleria_desecho";
     btn.type = "button";
-    btn.textContent = "Desecho";
+    btn.textContent = "Desecho / Regalo";
     btn.className = "pasteleria_desecho_trigger_btn";
     btn.addEventListener("click", () => ctx.onClickPasteleriaDesecho());
 

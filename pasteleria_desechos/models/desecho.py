@@ -5,7 +5,7 @@ from odoo.exceptions import UserError, ValidationError
 
 class PasteleriaDesecho(models.Model):
     _name = "pasteleria.desecho"
-    _description = "Desecho (Pastelería)"
+    _description = "Desecho / Regalo (Pastelería)"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "requested_date desc, id desc"
 
@@ -20,6 +20,17 @@ class PasteleriaDesecho(models.Model):
         "res.company",
         required=True,
         default=lambda self: self.env.company,
+    )
+
+    operation_type = fields.Selection(
+        [
+            ("waste", "Desecho"),
+            ("gift", "Regalo"),
+        ],
+        string="Tipo",
+        default="waste",
+        required=True,
+        tracking=True,
     )
 
     warehouse_id = fields.Many2one(
@@ -100,6 +111,14 @@ class PasteleriaDesecho(models.Model):
         copy=False,
     )
 
+    def _operation_label(self):
+        self.ensure_one()
+        return "regalo" if self.operation_type == "gift" else "desecho"
+
+    def _operation_label_title(self):
+        self.ensure_one()
+        return "Regalo" if self.operation_type == "gift" else "Desecho"
+
     def _post_desecho_message(self, subject, body=None):
         for rec in self:
             rec.message_post(
@@ -125,11 +144,15 @@ class PasteleriaDesecho(models.Model):
         ).create(vals_list)
 
         for rec in records:
+            operation_label = rec._operation_label()
+            operation_title = rec._operation_label_title()
+
             rec._post_desecho_message(
-                subject="Orden de desecho creada",
+                subject=f"Orden de {operation_label} creada",
                 body=(
-                    f"<b>Orden de desecho creada</b><br/>"
+                    f"<b>Orden de {operation_label} creada</b><br/>"
                     f"Referencia: {rec.name}<br/>"
+                    f"Tipo: {operation_title}<br/>"
                     f"Solicitado por: {rec.requested_by.name or '-'}<br/>"
                     f"Sucursal / Almacén: {rec.warehouse_id.display_name or '-'}<br/>"
                     f"Punto de Venta: {rec.pos_config_id.display_name or '-'}<br/>"
@@ -154,12 +177,12 @@ class PasteleriaDesecho(models.Model):
     def _check_lines(self):
         for rec in self:
             if rec.state in ("pending", "confirmed") and not rec.line_ids:
-                raise ValidationError(_("Debes agregar al menos una línea de desecho."))
+                raise ValidationError(_("Debes agregar al menos una línea."))
 
     def _ensure_can_edit(self):
         for rec in self:
             if rec.state != "draft" and not self.env.user.has_group("pasteleria_desechos.group_pasteleria_admin"):
-                raise UserError(_("Solo puedes editar un desecho cuando está en Borrador."))
+                raise UserError(_("Solo puedes editar un registro cuando está en Borrador."))
 
     def write(self, vals):
         if not self.env.context.get("skip_desecho_edit_check"):
@@ -171,7 +194,7 @@ class PasteleriaDesecho(models.Model):
     def unlink(self):
         for rec in self:
             if rec.state == "confirmed":
-                raise UserError(_("No puedes borrar un desecho confirmado."))
+                raise UserError(_("No puedes borrar un registro confirmado."))
         return super().unlink()
 
     def action_submit(self):
@@ -189,10 +212,11 @@ class PasteleriaDesecho(models.Model):
                 "state": "pending",
             })
 
+            operation_label = rec._operation_label()
             rec._post_desecho_message(
-                subject="Orden de desecho enviada a revisión",
+                subject=f"Orden de {operation_label} enviada a revisión",
                 body=(
-                    f"<b>Orden de desecho enviada a revisión</b><br/>"
+                    f"<b>Orden de {operation_label} enviada a revisión</b><br/>"
                     f"Referencia: {rec.name}<br/>"
                     f"Enviado por: {self.env.user.name}"
                 ),
@@ -203,7 +227,7 @@ class PasteleriaDesecho(models.Model):
             self.env.user.has_group("pasteleria_desechos.group_pasteleria_gerente")
             or self.env.user.has_group("pasteleria_desechos.group_pasteleria_admin")
         ):
-            raise UserError(_("No tienes permisos para aprobar/rechazar desechos."))
+            raise UserError(_("No tienes permisos para aprobar/rechazar registros."))
 
     def action_reject(self):
         self._ensure_manager()
@@ -221,10 +245,11 @@ class PasteleriaDesecho(models.Model):
                 "approved_date": fields.Datetime.now(),
             })
 
+            operation_label = rec._operation_label()
             rec._post_desecho_message(
-                subject="Orden de desecho rechazada",
+                subject=f"Orden de {operation_label} rechazada",
                 body=(
-                    f"<b>Orden de desecho rechazada</b><br/>"
+                    f"<b>Orden de {operation_label} rechazada</b><br/>"
                     f"Referencia: {rec.name}<br/>"
                     f"Revisado por: {self.env.user.name}<br/>"
                     f"Fecha: {fields.Datetime.now()}"
@@ -245,10 +270,11 @@ class PasteleriaDesecho(models.Model):
                     "approved_date": False,
                 })
 
+                operation_label = rec._operation_label()
                 rec._post_desecho_message(
-                    subject="Orden de desecho devuelta a borrador",
+                    subject=f"Orden de {operation_label} devuelta a borrador",
                     body=(
-                        f"<b>Orden de desecho devuelta a borrador</b><br/>"
+                        f"<b>Orden de {operation_label} devuelta a borrador</b><br/>"
                         f"Referencia: {rec.name}<br/>"
                         f"Acción realizada por: {self.env.user.name}"
                     ),
@@ -256,6 +282,10 @@ class PasteleriaDesecho(models.Model):
 
     def _get_waste_location(self):
         self.ensure_one()
+
+        loc = self.env.ref("pasteleria_desechos.location_pasteleria_desechos", raise_if_not_found=False)
+        if loc and loc.exists():
+            return loc
 
         loc = self.env["stock.location"].search([
             ("usage", "=", "inventory"),
@@ -275,6 +305,30 @@ class PasteleriaDesecho(models.Model):
 
         return loc
 
+    def _get_gift_location(self):
+        self.ensure_one()
+
+        loc = self.env.ref("pasteleria_desechos.location_pasteleria_regalos", raise_if_not_found=False)
+        if loc and loc.exists():
+            return loc
+
+        loc = self.env["stock.location"].search([
+            ("usage", "=", "internal"),
+            ("company_id", "in", [self.company_id.id, False]),
+            ("name", "ilike", "Regalos"),
+        ], limit=1)
+
+        if not loc:
+            raise UserError(_("No se encontró una ubicación interna destino para regalos."))
+
+        return loc
+
+    def _get_destination_location(self):
+        self.ensure_one()
+        if self.operation_type == "gift":
+            return self._get_gift_location()
+        return self._get_waste_location()
+
     def action_confirm(self):
         self._ensure_manager()
         StockMoveLine = self.env["stock.move.line"].sudo()
@@ -287,7 +341,7 @@ class PasteleriaDesecho(models.Model):
                 raise UserError(_("No hay líneas para confirmar."))
 
             if rec.picking_id:
-                raise UserError(_("Este desecho ya tiene un movimiento asociado."))
+                raise UserError(_("Este registro ya tiene un movimiento asociado."))
 
             if not rec.warehouse_id:
                 raise UserError(_("Debes seleccionar un almacén/sucursal."))
@@ -298,7 +352,7 @@ class PasteleriaDesecho(models.Model):
             if not picking_type:
                 raise UserError(_("El almacén no tiene tipo de operación interna configurada."))
 
-            dest_location = rec._get_waste_location()
+            dest_location = rec._get_destination_location()
 
             picking_vals = {
                 "picking_type_id": picking_type.id,
@@ -333,7 +387,7 @@ class PasteleriaDesecho(models.Model):
 
             moves = self.env["stock.move"].sudo().create(move_vals_list)
 
-            # Confirmar SIN merge para no perder la correspondencia línea -> move
+            # Confirmar sin merge para no perder correspondencia línea -> move
             moves._action_confirm(merge=False)
 
             for move, line in zip(moves, rec.line_ids):
@@ -370,10 +424,11 @@ class PasteleriaDesecho(models.Model):
                 "picking_id": picking.id,
             })
 
+            operation_label = rec._operation_label()
             rec._post_desecho_message(
-                subject="Orden de desecho confirmada",
+                subject=f"Orden de {operation_label} confirmada",
                 body=(
-                    f"<b>Orden de desecho confirmada</b><br/>"
+                    f"<b>Orden de {operation_label} confirmada</b><br/>"
                     f"Referencia: {rec.name}<br/>"
                     f"Aprobado por: {self.env.user.name}<br/>"
                     f"Fecha: {fields.Datetime.now()}<br/>"
@@ -391,7 +446,6 @@ class PasteleriaDesecho(models.Model):
         if not product:
             raise UserError(_("No se encontró el producto."))
 
-        # Tu módulo de lotes sí expone este método en product.product
         snapshot = self.env["product.product"].pos_get_expiry_snapshot(pos_config.id)
 
         products_map = snapshot.get("products", {}) if isinstance(snapshot, dict) else {}
@@ -410,8 +464,6 @@ class PasteleriaDesecho(models.Model):
                 "sellable": lot.get("sellable"),
                 "expired": lot.get("expired"),
                 "days_left": lot.get("days_left"),
-                # En desechos sí se pueden seleccionar lotes negros/vencidos,
-                # siempre que tengan disponible.
                 "selectable": qty_available > 0,
             })
 
@@ -444,6 +496,7 @@ class PasteleriaDesecho(models.Model):
         payload esperado:
         {
             "pos_config_id": int,
+            "operation_type": "waste" | "gift",
             "lines": [
                 {
                     "product_id": int,
@@ -458,6 +511,10 @@ class PasteleriaDesecho(models.Model):
         pos = self.env["pos.config"].browse(int(payload.get("pos_config_id") or 0))
         if not pos.exists():
             raise UserError(_("POS inválido."))
+
+        operation_type = payload.get("operation_type") or "waste"
+        if operation_type not in ("waste", "gift"):
+            operation_type = "waste"
 
         raw_lines = payload.get("lines") or []
         raw_lines = [l for l in raw_lines if l.get("product_id") and (l.get("qty") or 0) > 0]
@@ -504,7 +561,8 @@ class PasteleriaDesecho(models.Model):
                 "reason": (l.get("reason") or "").strip(),
             }))
 
-        desecho = self.create({
+        record = self.create({
+            "operation_type": operation_type,
             "warehouse_id": warehouse.id,
             "location_id": warehouse.lot_stock_id.id,
             "pos_config_id": pos.id,
@@ -514,14 +572,15 @@ class PasteleriaDesecho(models.Model):
         })
 
         return {
-            "id": desecho.id,
-            "name": desecho.name,
+            "id": record.id,
+            "name": record.name,
+            "operation_type": record.operation_type,
         }
 
 
 class PasteleriaDesechoLine(models.Model):
     _name = "pasteleria.desecho.line"
-    _description = "Línea de Desecho (Pastelería)"
+    _description = "Línea de Desecho / Regalo (Pastelería)"
 
     desecho_id = fields.Many2one(
         "pasteleria.desecho",
@@ -538,7 +597,7 @@ class PasteleriaDesechoLine(models.Model):
         "stock.lot",
         string="Lote",
         domain="[('product_id', '=', product_id)]",
-        help="Lote seleccionado para el desecho. Se permite incluso si está vencido.",
+        help="Lote seleccionado para el movimiento. Se permite incluso si está vencido.",
     )
     product_uom_id = fields.Many2one(
         "uom.uom",
