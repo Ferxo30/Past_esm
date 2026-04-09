@@ -97,11 +97,15 @@ class PasteleriaPosReportProductMap(models.Model):
         elif hasattr(product, "pos_categ_ids") and product.pos_categ_ids:
             pos_category = product.pos_categ_ids[:1]
 
-        category_name = (
-            pos_category.display_name
-            if pos_category
-            else (product.categ_id.display_name if product.categ_id else _("Sin categoría"))
-        )
+        if pos_category:
+            category_name = pos_category.display_name
+        elif product.categ_id:
+            category_name = product.categ_id.display_name
+        else:
+            category_name = _("Sin categoría POS")
+
+        if not category_name or str(category_name).strip().lower() == "all":
+            category_name = _("Sin categoría POS")
 
         return {
             "product_id": product.id,
@@ -120,7 +124,6 @@ class PasteleriaPosReportProductMap(models.Model):
         variant_raw = False
         variant_normalized = "other"
 
-        # 1) Priorizar SOLO atributos cuyo nombre empiece por "Tamaño"
         ptav_records = getattr(product, "product_template_attribute_value_ids", False) or self.env["product.template.attribute.value"]
 
         size_attr_values = []
@@ -137,7 +140,6 @@ class PasteleriaPosReportProductMap(models.Model):
                 variant_normalized = normalized
                 return family.strip(), variant_raw, variant_normalized
 
-        # 2) Fallback: intentar por nombre completo del producto
         full_name = " ".join(filter(None, [product.display_name, product.name, tmpl.name]))
         variant_normalized = self._normalize_variant_name(full_name)
 
@@ -173,7 +175,6 @@ class PasteleriaPosReportProductMap(models.Model):
         if not value:
             return "other"
 
-        # Orden importante: primero casos más específicos
         patterns = {
             "p5": [
                 r"\b5\s*porciones?\b",

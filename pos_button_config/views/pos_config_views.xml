@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="pos_config_view_form_inherit_button_configuration" model="ir.ui.view">
+        <field name="name">pos.config.form.view.inherit.button.configuration</field>
+        <field name="model">pos.config</field>
+        <field name="inherit_id" ref="point_of_sale.pos_config_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet/div[hasclass('o_settings_container')][last()]" position="after">
+                <h2>Button Configuration</h2>
+                <div class="row mt16 o_settings_container">
+                    <setting string="Quantity button" help="Enable or disable the Qty button in the POS numpad.">
+                        <field name="wv_qty" readonly="has_active_session"/>
+                    </setting>
+                    <setting string="Discount button" help="Enable or disable the discount button in the POS numpad.">
+                        <field name="wv_discount" readonly="has_active_session"/>
+                    </setting>
+                    <setting string="Price button" help="Enable or disable the price button in the POS numpad.">
+                        <field name="wv_price" readonly="has_active_session"/>
+                    </setting>
+                    <setting string="+/- button" help="Enable or disable the +/- button in the POS numpad.">
+                        <field name="wv_plusminus" readonly="has_active_session"/>
+                    </setting>
+                    <setting string="Payment button" help="Enable or disable the payment button in the POS screen.">
+                        <field name="wv_payment" readonly="has_active_session"/>
+                    </setting>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>

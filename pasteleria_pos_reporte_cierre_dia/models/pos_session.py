@@ -45,8 +45,12 @@ class PosSession(models.Model):
                 report = Report.create(vals)
 
             try:
-                report._generate_full_report()
+                report._generate_report_data()
+                report._generate_excel_file()
+                report._generate_pdf_file()
+                report.state = "generated"
             except Exception as e:
                 report.state = "error"
-                report.summary_text = (report.summary_text or "") + _("\nError generando reporte: %s") % e
+                report.summary_text = (report.summary_text or "") + _("\nError generando reporte automático: %s") % str(e)
+
             session.daily_report_id = report.id
