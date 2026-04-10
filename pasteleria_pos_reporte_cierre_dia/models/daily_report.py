@@ -276,7 +276,7 @@ class PasteleriaPosDailyReport(models.Model):
         # Enteros / completos
         whole_codes = ["pq", "gr", "xg", "xg40", "pl40_45", "pl55_60", "pl100"]
         # Porciones / piezas / otros
-        portion_codes = ["p", "p5", "other"]
+        portion_codes = ["p", "other"]
 
         exist_e = sum(getv(code, "exist") for code in whole_codes)
         income_e = sum(getv(code, "income") for code in whole_codes)
@@ -466,74 +466,126 @@ class PasteleriaPosDailyReport(models.Model):
             workbook = xlsxwriter.Workbook(output, {"in_memory": True})
             sheet = workbook.add_worksheet("Reporte Final Día")
 
-            fmt_title = workbook.add_format({"bold": True, "font_size": 14, "align": "center"})
-            fmt_header = workbook.add_format({"bold": True, "border": 1, "align": "center", "valign": "vcenter", "bg_color": "#D9EAD3"})
-            fmt_cell = workbook.add_format({"border": 1, "align": "center"})
-            fmt_text = workbook.add_format({"border": 1})
-            fmt_category = workbook.add_format({"bold": True, "border": 1, "bg_color": "#F4CCCC"})
-            fmt_subtotal = workbook.add_format({"bold": True, "border": 1, "bg_color": "#FFF2CC"})
-            fmt_total = workbook.add_format({"bold": True, "border": 1, "align": "center", "bg_color": "#D9D2E9"})
+            fmt_title = workbook.add_format({
+                "bold": True,
+                "font_size": 14,
+                "align": "center",
+                "valign": "vcenter",
+            })
+            fmt_header_group = workbook.add_format({
+                "bold": True,
+                "border": 1,
+                "align": "center",
+                "valign": "vcenter",
+                "bg_color": "#D9EAD3",
+            })
+            fmt_header_sub = workbook.add_format({
+                "bold": True,
+                "border": 1,
+                "align": "center",
+                "valign": "vcenter",
+                "bg_color": "#EADFD3",
+            })
+            fmt_cell = workbook.add_format({
+                "border": 1,
+                "align": "center",
+                "valign": "vcenter",
+            })
+            fmt_text = workbook.add_format({
+                "border": 1,
+                "valign": "vcenter",
+            })
+            fmt_category = workbook.add_format({
+                "bold": True,
+                "border": 1,
+                "bg_color": "#F4CCCC",
+            })
+            fmt_subtotal = workbook.add_format({
+                "bold": True,
+                "border": 1,
+                "bg_color": "#FFF2CC",
+            })
+            fmt_total = workbook.add_format({
+                "bold": True,
+                "border": 1,
+                "align": "center",
+                "bg_color": "#D9D2E9",
+            })
 
             sheet.set_column("A:A", 30)
-            sheet.set_column("B:ZZ", 12)
+            sheet.set_column("B:ZZ", 10)
 
             row = 0
-            sheet.merge_range(row, 0, row, 20, "PASTELERÍA - REPORTE FINAL DEL DÍA", fmt_title)
+            sheet.merge_range(row, 0, row, 40, "PASTELERÍA - REPORTE FINAL DEL DÍA", fmt_title)
             row += 2
 
-            sheet.write(row, 0, "Sesión", fmt_header)
+            sheet.write(row, 0, "Sesión", fmt_header_group)
             sheet.write(row, 1, self.session_id.name or "", fmt_cell)
-            sheet.write(row, 2, "POS", fmt_header)
+            sheet.write(row, 2, "POS", fmt_header_group)
             sheet.write(row, 3, self.config_id.display_name or "", fmt_cell)
-            sheet.write(row, 4, "Fecha", fmt_header)
+            sheet.write(row, 4, "Fecha", fmt_header_group)
             sheet.write(row, 5, str(self.report_date or ""), fmt_cell)
             row += 2
 
+            operation_groups = [
+                ("Existencia", "exist"),
+                ("Ingresos", "income"),
+                ("Egresos", "expense"),
+                ("Desechos", "waste"),
+                ("Ventas del día", "sales"),
+                ("Saldo final", "final"),
+            ]
+
             for category in payload["categories"]:
-                variants = category["variants"]
+                variants = category["variants"] or []
 
-                sheet.merge_range(row, 0, row, max(1, 1 + len(variants) * 4), category["category_name"], fmt_category)
+                if not variants:
+                    continue
+
+                total_columns = 1 + (len(operation_groups) * len(variants)) + 1
+
+                sheet.merge_range(row, 0, row, total_columns - 1, category["category_name"], fmt_category)
                 row += 1
 
-                headers = ["Descripción"]
-                for var_code in variants:
-                    meta = self.VARIANT_META.get(var_code, {"short": var_code})
-                    short = meta["short"]
-                    headers.extend([
-                        f"Exist. {short}",
-                        f"Ing. {short}",
-                        f"Venta {short}",
-                        f"Saldo {short}",
-                    ])
-                headers.append("VTA-Q")
+                # Encabezado fila 1: grupos de operación
+                sheet.merge_range(row, 0, row + 1, 0, "Descripción", fmt_header_group)
+                col = 1
 
-                for col, header in enumerate(headers):
-                    sheet.write(row, col, header, fmt_header)
-                row += 1
+                for label, _key in operation_groups:
+                    start_col = col
+                    end_col = col + len(variants) - 1
+                    sheet.merge_range(row, start_col, row, end_col, label, fmt_header_group)
+                    col = end_col + 1
+
+                sheet.merge_range(row, col, row + 1, col, "VTA-Q", fmt_header_group)
+
+                # Encabezado fila 2: variantes
+                sub_col = 1
+                for _label, _key in operation_groups:
+                    for var_code in variants:
+                        meta = self.VARIANT_META.get(var_code, {"short": var_code})
+                        sheet.write(row + 1, sub_col, meta["short"], fmt_header_sub)
+                        sub_col += 1
+
+                row += 2
 
                 for family in category["families"]:
-                    col = 0
-                    sheet.write(row, col, family["family_name"], fmt_text)
-                    col += 1
+                    sheet.write(row, 0, family["family_name"], fmt_text)
+                    col = 1
 
-                    for var_code in variants:
-                        values = family["variants"].get(var_code, {})
-                        sheet.write(row, col, values.get("exist", 0.0), fmt_cell)
-                        col += 1
-                        sheet.write(row, col, values.get("income", 0.0), fmt_cell)
-                        col += 1
-                        sheet.write(row, col, values.get("sales", 0.0), fmt_cell)
-                        col += 1
-                        sheet.write(row, col, values.get("final", 0.0), fmt_cell)
-                        col += 1
+                    for _label, key in operation_groups:
+                        for var_code in variants:
+                            values = family["variants"].get(var_code, {})
+                            sheet.write(row, col, values.get(key, 0.0), fmt_cell)
+                            col += 1
 
                     sheet.write(row, col, family["sales_amount_q"], fmt_cell)
                     row += 1
 
                 sheet.write(row, 0, f"Subtotal {category['category_name']}", fmt_subtotal)
-                for c in range(1, len(headers) - 1):
+                for c in range(1, total_columns - 1):
                     sheet.write(row, c, "", fmt_subtotal)
-                sheet.write(row, len(headers) - 1, category["category_total"], fmt_subtotal)
+                sheet.write(row, total_columns - 1, category["category_total"], fmt_subtotal)
                 row += 2
 
             sheet.merge_range(row, 0, row, 3, "TOTAL GENERAL Q", fmt_total)
@@ -555,7 +607,6 @@ class PasteleriaPosDailyReport(models.Model):
                 except Exception:
                     pass
             output.close()
-
     def _generate_pdf_file(self):
         self.ensure_one()
 
