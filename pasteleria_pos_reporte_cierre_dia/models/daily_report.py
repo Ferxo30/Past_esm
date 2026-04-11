@@ -218,20 +218,25 @@ class PasteleriaPosDailyReport(models.Model):
         """
         Ajuste visual/operativo para el reporte:
         - Si la existencia inicial es negativa, se muestra como 0.
-        - Los ingresos se respetan tal cual.
-        - Esto evita descuadres visuales cuando el día arranca con inventario negativo.
+        - El saldo final mostrado se recalcula con base en lo mostrado:
+            final = exist + income - expense - waste - sales
+        - Si el saldo recalculado queda negativo, también se muestra como 0.
         """
         metrics = dict(metrics or {})
 
-        exist = metrics.get("exist", 0.0) or 0.0
+        exist_real = metrics.get("exist", 0.0) or 0.0
         income = metrics.get("income", 0.0) or 0.0
         expense = metrics.get("expense", 0.0) or 0.0
         waste = metrics.get("waste", 0.0) or 0.0
         sales = metrics.get("sales", 0.0) or 0.0
-        final = metrics.get("final", 0.0) or 0.0
 
-        if exist < 0:
-            exist = 0.0
+        # Existencia inicial mostrada
+        exist = exist_real if exist_real > 0 else 0.0
+
+        # Saldo final mostrado, consistente con el cuadro visual
+        final = exist + income - expense - waste - sales
+        if final < 0:
+            final = 0.0
 
         metrics.update({
             "exist": exist,
@@ -242,7 +247,6 @@ class PasteleriaPosDailyReport(models.Model):
             "final": final,
         })
         return metrics
-
     def _compute_family_payload(self, family_name, maps):
         self.ensure_one()
 
