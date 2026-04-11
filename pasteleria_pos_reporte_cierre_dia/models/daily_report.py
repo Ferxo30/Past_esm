@@ -75,9 +75,7 @@ class PasteleriaPosDailyReport(models.Model):
                 report._generate_report_data()
                 report._generate_excel_file()
                 report._generate_pdf_file()
-
                 report.state = "generated"
-
             except Exception as e:
                 report.state = "error"
                 report.summary_text = (report.summary_text or "") + _("\nERROR al regenerar reporte: %s") % str(e)
@@ -92,7 +90,6 @@ class PasteleriaPosDailyReport(models.Model):
             "url": f"/web/content/{self._name}/{self.id}/excel_file/{self.excel_filename}?download=true",
             "target": "self",
         }
-    
 
     def action_download_pdf(self):
         self.ensure_one()
@@ -217,6 +214,35 @@ class PasteleriaPosDailyReport(models.Model):
 
         return payload
 
+    def _normalize_variant_metrics_for_report(self, metrics):
+        """
+        Ajuste visual/operativo para el reporte:
+        - Si la existencia inicial es negativa, se muestra como 0.
+        - Los ingresos se respetan tal cual.
+        - Esto evita descuadres visuales cuando el día arranca con inventario negativo.
+        """
+        metrics = dict(metrics or {})
+
+        exist = metrics.get("exist", 0.0) or 0.0
+        income = metrics.get("income", 0.0) or 0.0
+        expense = metrics.get("expense", 0.0) or 0.0
+        waste = metrics.get("waste", 0.0) or 0.0
+        sales = metrics.get("sales", 0.0) or 0.0
+        final = metrics.get("final", 0.0) or 0.0
+
+        if exist < 0:
+            exist = 0.0
+
+        metrics.update({
+            "exist": exist,
+            "income": income,
+            "expense": expense,
+            "waste": waste,
+            "sales": sales,
+            "final": final,
+        })
+        return metrics
+
     def _compute_family_payload(self, family_name, maps):
         self.ensure_one()
 
@@ -260,6 +286,9 @@ class PasteleriaPosDailyReport(models.Model):
             sales_amount_q += sales_amount
             used_variants.add(variant)
 
+        for variant_code in list(variants.keys()):
+            variants[variant_code] = self._normalize_variant_metrics_for_report(variants[variant_code])
+
         return {
             "family_name": family_name,
             "variants": variants,
@@ -275,7 +304,7 @@ class PasteleriaPosDailyReport(models.Model):
 
         # Enteros / completos
         whole_codes = ["pq", "gr", "xg", "xg40", "pl40_45", "pl55_60", "pl100"]
-        # Porciones / piezas / otros
+        # Porciones / piezas / otros (p5 aislado; no se mezcla en P)
         portion_codes = ["p", "other"]
 
         exist_e = sum(getv(code, "exist") for code in whole_codes)
@@ -547,7 +576,6 @@ class PasteleriaPosDailyReport(models.Model):
                 sheet.merge_range(row, 0, row, total_columns - 1, category["category_name"], fmt_category)
                 row += 1
 
-                # Encabezado fila 1: grupos de operación
                 sheet.merge_range(row, 0, row + 1, 0, "Descripción", fmt_header_group)
                 col = 1
 
@@ -559,7 +587,6 @@ class PasteleriaPosDailyReport(models.Model):
 
                 sheet.merge_range(row, col, row + 1, col, "VTA-Q", fmt_header_group)
 
-                # Encabezado fila 2: variantes
                 sub_col = 1
                 for _label, _key in operation_groups:
                     for var_code in variants:
@@ -607,6 +634,7 @@ class PasteleriaPosDailyReport(models.Model):
                 except Exception:
                     pass
             output.close()
+
     def _generate_pdf_file(self):
         self.ensure_one()
 
