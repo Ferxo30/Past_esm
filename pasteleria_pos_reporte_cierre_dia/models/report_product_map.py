@@ -24,8 +24,7 @@ class PasteleriaPosReportProductMap(models.Model):
     variant_normalized = fields.Selection(
         [
             ("p", "Porción"),
-            ("p5", "5 porciones"),
-            ("pq", "Pequeño 8-10"),
+            ("pq", "Pequeño"),
             ("gr", "Grande 12-16"),
             ("xg", "25-30 porciones"),
             ("xg40", "40 porciones"),
@@ -147,10 +146,14 @@ class PasteleriaPosReportProductMap(models.Model):
             token_pattern = (
                 r"(?i)"
                 r"("
-                    r"\b(?:1\s*)?porci(?:ó|o)?n\b|"
+                    r"\bporci(?:ó|o)?n\b|"
+                    r"\b1\s*porci(?:ó|o)?n\b|"
                     r"\b5\s*porciones?\b|"
+                    r"\bpeque(?:ñ|n)o(?:\s*5)?\b|"
                     r"\bpeque(?:ñ|n)o\s*8\s*-\s*10\b|"
                     r"\b8\s*-\s*10\b|"
+                    r"\bcompleto\b|"
+                    r"\bcompleto\s*q\b|"
                     r"\bgrande\s*12\s*-\s*16\b|"
                     r"\b12\s*-\s*16\b|"
                     r"\b25\s*-\s*30\s*porciones?\b|"
@@ -176,16 +179,24 @@ class PasteleriaPosReportProductMap(models.Model):
             return "other"
 
         patterns = {
-            "p5": [
-                r"\b5\s*porciones?\b",
-            ],
             "p": [
                 r"\bporci(?:ó|o)?n\b",
                 r"\b1\s*porci(?:ó|o)?n\b",
             ],
+            # TODO lo pequeño entra a pq:
+            # - 5 porciones
+            # - pequeño 5
+            # - pequeño
+            # - pequeño 8-10
+            # - completo / completo q
             "pq": [
+                r"\b5\s*porciones?\b",
+                r"\bpeque(?:ñ|n)o\s*5\b",
+                r"\bpeque(?:ñ|n)o\b",
                 r"\bpeque(?:ñ|n)o\s*8\s*-\s*10\b",
                 r"\b8\s*-\s*10\b",
+                r"\bcompleto\b",
+                r"\bcompleto\s*q\b",
             ],
             "gr": [
                 r"\bgrande\s*12\s*-\s*16\b",

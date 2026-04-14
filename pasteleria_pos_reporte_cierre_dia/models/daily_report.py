@@ -52,8 +52,7 @@ class PasteleriaPosDailyReport(models.Model):
 
     VARIANT_META = OrderedDict([
         ("p", {"label": "Porción", "short": "P"}),
-        ("p5", {"label": "5 porciones", "short": "5P"}),
-        ("pq", {"label": "Pequeño 8-10", "short": "Pq"}),
+        ("pq", {"label": "Pequeño", "short": "Pq"}),
         ("gr", {"label": "Grande 12-16", "short": "Gr"}),
         ("xg", {"label": "25-30 porciones", "short": "25-30"}),
         ("xg40", {"label": "40 porciones", "short": "40P"}),
@@ -230,10 +229,7 @@ class PasteleriaPosDailyReport(models.Model):
         waste = metrics.get("waste", 0.0) or 0.0
         sales = metrics.get("sales", 0.0) or 0.0
 
-        # Existencia inicial mostrada
         exist = exist_real if exist_real > 0 else 0.0
-
-        # Saldo final mostrado, consistente con el cuadro visual
         final = exist + income - expense - waste - sales
         if final < 0:
             final = 0.0
@@ -247,6 +243,7 @@ class PasteleriaPosDailyReport(models.Model):
             "final": final,
         })
         return metrics
+
     def _compute_family_payload(self, family_name, maps):
         self.ensure_one()
 
@@ -308,7 +305,7 @@ class PasteleriaPosDailyReport(models.Model):
 
         # Enteros / completos
         whole_codes = ["pq", "gr", "xg", "xg40", "pl40_45", "pl55_60", "pl100"]
-        # Porciones / piezas / otros (p5 aislado; no se mezcla en P)
+        # Porciones / piezas / otros
         portion_codes = ["p", "other"]
 
         exist_e = sum(getv(code, "exist") for code in whole_codes)
