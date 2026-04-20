@@ -1,0 +1,64 @@
+.o_pos_reload_receipt_btn {
+    display: block;
+    width: 100%;
+    margin: 8px 0 8px 0;
+    padding: 14px 16px;
+    border: 1px solid #875a7b;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #875a7b;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+}
+
+.o_pos_reload_receipt_btn:hover,
+.o_pos_reload_receipt_btn:focus {
+    background: #f7f1f5;
+}
+
+.o_pos_reload_receipt_btn:disabled,
+.o_pos_reload_receipt_btn.is_loading {
+    opacity: 0.8;
+    cursor: wait;
+}
+
+.o_pos_reload_receipt_btn.is_success {
+    background: #eef8f0;
+    border-color: #2e7d32;
+    color: #2e7d32;
+}
+
+.o_pos_reload_receipt_btn.is_error {
+    background: #fff3f3;
+    border-color: #c62828;
+    color: #c62828;
+}
+
+.o_pos_receipt_reload_status {
+    width: 100%;
+    margin: 8px 0 8px 0;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1.35;
+    box-sizing: border-box;
+}
+
+.o_pos_receipt_reload_status.o_status_info {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.o_pos_receipt_reload_status.o_status_success {
+    background: #eef8f0;
+    color: #256029;
+    border: 1px solid #9ad3a1;
+}
+
+.o_pos_receipt_reload_status.o_status_error {
+    background: #fff3f3;
+    color: #b42318;
+    border: 1px solid #f5b5b0;
+}
